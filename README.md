@@ -2,6 +2,13 @@
 
 Plays a sound and/or shows a popup when task is complete.
 
+## Documentation
+
+- [INSTALLATION.md](./INSTALLATION.md)
+- [CONTRIBUTING.md](./CONTRIBUTING.md)
+- [SECURITY.md](./SECURITY.md)
+- [AUTO_DEPLOY.md](./AUTO_DEPLOY.md)
+
 ## Project File Guide
 
 - `extension.js`
