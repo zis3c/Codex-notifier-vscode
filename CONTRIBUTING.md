@@ -1,32 +1,55 @@
-# Contributing
+﻿# Contributing to Codex Finish Notifier
 
-Thanks for contributing to Codex Finish Notifier.
+Thanks for contributing. Bug fixes, docs improvements, and UX refinements are welcome.
 
-## Local Workflow
+## How to Contribute
 
-1. Create a branch from `main`.
-2. Make focused changes.
-3. Test in Extension Development Host (`F5`).
-4. Run:
-   - `node --check extension.js`
+### 1. Report Bugs
+
+- Check existing issues first.
+- If new, include:
+  - clear title
+  - reproduction steps
+  - expected vs actual behavior
+
+### 2. Suggest Features
+
+- Describe use case and expected behavior.
+- Keep changes backward compatible where possible.
+
+### 3. Submit Pull Requests
+
+1. Fork/clone the repository.
+2. Create a branch:
+   - `git checkout -b feature/my-change`
+3. Implement changes.
+4. Test extension in Development Host (`F5`).
 5. Commit with clear message.
 6. Open PR.
 
-## Code Style
+## Coding Guidelines
 
 - Keep logic simple and explicit.
-- Prefer minimal, readable fixes.
-- Avoid machine-specific hardcoded paths.
-- Keep bundled fallback behavior working for all users.
+- Avoid machine-specific paths in committed config.
+- Preserve bundled sound fallback behavior.
+- Prefer readable fixes over clever complexity.
 
-## Testing Checklist
+## Validation Checklist
 
+- `node --check extension.js` passes.
+- `package.json` stays valid JSON.
 - `Codex Notifier: Test Sound` works.
 - Completion notify fires once per response burst.
-- No repeated spam notifications.
-- Banner/quiet mode toggle works (`codexNotifier.completionUseBanner`).
+- Quiet/banner toggle behaves correctly.
 
-## Packaging
+## Packaging Notes
 
-- Build VSIX with:
-  - `npm exec --yes @vscode/vsce package -- --out codex-notifier-private.vsix`
+Build install artifact with:
+
+```bash
+npm exec --yes @vscode/vsce package -- --out codex-notifier-private.vsix
+```
+
+## License
+
+By contributing, you agree your contributions are licensed under MIT.

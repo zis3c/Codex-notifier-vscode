@@ -2,7 +2,6 @@
 .git/**
 .gitignore
 .codex-notify
-*.vsix
 *.log
 node_modules/**
 

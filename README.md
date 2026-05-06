@@ -1,6 +1,56 @@
-# Codex Notifier (VS Code Extension)
+﻿# Codex Finish Notifier (VS Code Extension)
 
-Plays a sound and/or shows a popup when task is complete.
+![VS Code](https://img.shields.io/badge/VS%20Code-Extension-007ACC?logo=visual-studio-code&logoColor=white)
+![JavaScript](https://img.shields.io/badge/JavaScript-Node.js-F7DF1E?logo=javascript&logoColor=black)
+![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
+![License](https://img.shields.io/badge/License-MIT-green)
+
+A lightweight VS Code extension that notifies you when Codex responses finish using sound and configurable UI alerts (quiet status or banner popup).
+
+> [!NOTE]
+> Built for fast feedback loops: you can use auto-detection from Codex logs/chat, or manual file-trigger flow via `.codex-notify`.
+
+## Features
+
+- Completion and error notification commands.
+- Bundled sound defaults (no custom setup required):
+  - Complete -> `notification2.wav`
+  - Error -> `notification1.wav`
+- Auto completion detection from Codex stream logs.
+- Optional document-based idle detection fallback.
+- Quiet mode or banner mode for completion notifications.
+- Manual trigger support through `.codex-notify` and `codex-done.ps1`.
+
+## Commands
+
+| Command | Description |
+|:--|:--|
+| `Codex Notifier: Notify Complete` | Trigger completion notification manually |
+| `Codex Notifier: Notify Error` | Trigger error notification manually |
+| `Codex Notifier: Test Sound` | Test completion sound + UI behavior |
+| `Codex Notifier: Toggle Auto Notify` | Enable/disable log-based auto detection |
+| `Codex Notifier: Show Diagnostics` | Show runtime diagnostics snapshot |
+| `Codex Notifier: Debug Snapshot` | Print active docs/editors to output channel |
+
+## Quick Start
+
+1. Install from VSIX (see [INSTALLATION.md](./INSTALLATION.md)).
+2. Open VS Code settings and search `Codex Notifier`.
+3. Run `Codex Notifier: Test Sound`.
+
+## Recommended Settings
+
+```json
+{
+  "codexNotifier.enableSound": true,
+  "codexNotifier.enablePopup": true,
+  "codexNotifier.completionUseBanner": false,
+  "codexNotifier.monitorCodexLog": true,
+  "codexNotifier.codexLogPollMs": 500,
+  "codexNotifier.codexLogIdleMs": 900,
+  "codexNotifier.codexChatCooldownMs": 4500
+}
+```
 
 ## Documentation
 
@@ -9,103 +59,20 @@ Plays a sound and/or shows a popup when task is complete.
 - [SECURITY.md](./SECURITY.md)
 - [AUTO_DEPLOY.md](./AUTO_DEPLOY.md)
 
-## Project File Guide
+## Project Structure
 
-- `extension.js`
-  - Main extension runtime and command registration.
-  - Contains all watcher logic (file trigger, Codex doc monitor, Codex.log monitor).
-- `package.json`
-  - Extension manifest: commands, activation events, settings schema, keybindings.
-  - Note: standard JSON does not support inline comments.
-- `.vscode/launch.json`
-  - Debug launcher config for Extension Development Host (`F5`).
-- `.vscode/settings.json`
-  - Workspace-local tuning for notifier behavior while developing/testing.
-- `codex-done.ps1`
-  - Helper script that writes `.codex-notify` to manually trigger notifications.
-- `.codex-notify`
-  - File watched by extension for external/manual completion/error triggers.
-- `notification.wav`
-  - Bundled fallback sound for completion/error notifications.
-
-## Features
-
-- Command: `Codex Notifier: Notify Complete`
-- Command: `Codex Notifier: Notify Error`
-- Command: `Codex Notifier: Test Sound`
-- Optional file watcher trigger:
-  - Watches `.codex-notify` in workspace (default)
-  - On file update:
-    - contains `error` -> error notification
-    - anything else -> complete notification
-- Codex chat auto-detect trigger:
-  - Monitors `openai-codex` session document updates
-  - When updates go idle for configured delay, plays complete notification
-- Codex log auto-detect trigger (recommended):
-  - Monitors VS Code `Codex.log` for `thread-stream-state-changed`
-  - When stream events go idle, plays complete notification
-
-## Install (Local Dev)
-
-1. Open this folder in VS Code: `vscode-codex-notifier`
-2. Press `F5` to launch Extension Development Host
-3. In new window, run command palette:
-   - `Codex Notifier: Test Sound`
-
-## Settings
-
-In VS Code settings (`settings.json`):
-
-```json
-{
-  "codexNotifier.enableSound": true,
-  "codexNotifier.enablePopup": true,
-  "codexNotifier.volume": 1,
-  "codexNotifier.completeSoundPath": "C:\\\\sounds\\\\done.wav",
-  "codexNotifier.errorSoundPath": "C:\\\\sounds\\\\error.wav",
-  "codexNotifier.watchEnabled": true,
-  "codexNotifier.watchFilePath": ".codex-notify",
-  "codexNotifier.monitorCodexChat": true,
-  "codexNotifier.codexChatIdleMs": 1800,
-  "codexNotifier.codexChatCooldownMs": 5000,
-  "codexNotifier.codexChatPollMs": 600,
-  "codexNotifier.monitorCodexLog": true,
-  "codexNotifier.codexLogPollMs": 700,
-  "codexNotifier.codexLogIdleMs": 900,
-  "codexNotifier.codexLogCompleteWindowMs": 8000
-}
+```text
+codex-finish-notifier-vscode/
+|- extension.js
+|- package.json
+|- notification1.wav
+|- notification2.wav
+|- codex-done.ps1
+|- .vscodeignore
+|- LICENSE
+`- README.md
 ```
 
-If sound path is empty, extension uses system beep.
+## License
 
-## Trigger From Terminal
-
-From workspace root:
-
-```powershell
-Set-Content .codex-notify "complete $(Get-Date -Format o)"
-```
-
-For error:
-
-```powershell
-Set-Content .codex-notify "error $(Get-Date -Format o)"
-```
-
-Or use helper script:
-
-```powershell
-.\codex-done.ps1
-.\codex-done.ps1 -Kind error
-.\codex-done.ps1 -Kind complete -Message "complete manual trigger"
-```
-
-## Hotkeys
-
-- `Ctrl+Alt+.` -> `Codex Notifier: Notify Complete`
-- `Ctrl+Alt+,` -> `Codex Notifier: Notify Error`
-
-## Notes
-
-- For Windows custom sound, extension uses `SoundPlayer` for `.wav` and `MediaPlayer` fallback for other formats.
-- Keep sound files local and accessible.
+MIT. See [LICENSE](./LICENSE).
