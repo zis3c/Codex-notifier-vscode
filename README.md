@@ -63,15 +63,26 @@ A lightweight VS Code extension that notifies you when Codex responses finish us
 
 ```text
 codex-finish-notifier-vscode/
-|- extension.js
-|- package.json
-|- notification1.wav
-|- notification2.wav
-|- codex-done.ps1
-|- .vscodeignore
-|- LICENSE
-`- README.md
+|- .gitignore                    # Git exclusions for local/dev artifacts
+|- .vscodeignore                 # VSIX packaging exclusions
+|- AUTO_DEPLOY.md                # Release/deploy workflow documentation
+|- CONTRIBUTING.md               # Contribution workflow and coding notes
+|- INSTALLATION.md               # End-user and dev installation guide
+|- LICENSE                       # MIT license
+|- README.md                     # Main documentation and feature overview
+|- package.json                  # VS Code extension manifest/config schema
+|- extension.js                  # Core extension runtime (commands + watchers)
+|- codex-done.ps1                # Helper trigger script for .codex-notify flow
+|- notification1.wav             # Bundled default sound (error)
+|- notification2.wav             # Bundled default sound (complete)
+|- codex-notifier-private.vsix   # Prebuilt install artifact for direct install
+`- .vscode/
+   `- launch.json                # Extension Development Host debug profile
 ```
+
+Notes:
+- `.vscode/settings.json` is intentionally local-only and not tracked in git.
+- `.codex-notify` is runtime trigger data and not tracked in git.
 
 ## License
 
