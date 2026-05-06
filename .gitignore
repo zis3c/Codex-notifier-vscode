@@ -1,0 +1,11 @@
+﻿# Local/dev-only
+.codex-notify
+.vscode/settings.json
+*.vsix
+
+# OS noise
+Thumbs.db
+.DS_Store
+
+# Optional debug noise
+*.log

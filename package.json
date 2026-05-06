@@ -1,0 +1,191 @@
+{
+  "name": "codex-notifier",
+  "displayName": "Codex Notifier",
+  "description": "Notify with sound when work is complete.",
+  "version": "0.0.1",
+  "publisher": "local",
+  "homepage": "https://example.com/codex-notifier",
+  "repository": {
+    "type": "git",
+    "url": "https://example.com/codex-notifier.git"
+  },
+  "bugs": {
+    "url": "https://example.com/codex-notifier/issues"
+  },
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onCommand:codexNotifier.notifyComplete",
+    "onCommand:codexNotifier.notifyError",
+    "onCommand:codexNotifier.testSound",
+    "onCommand:codexNotifier.toggleAutoNotify",
+    "onCommand:codexNotifier.showDiagnostics"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codexNotifier.notifyComplete",
+        "title": "Codex Notifier: Notify Complete"
+      },
+      {
+        "command": "codexNotifier.notifyError",
+        "title": "Codex Notifier: Notify Error"
+      },
+      {
+        "command": "codexNotifier.testSound",
+        "title": "Codex Notifier: Test Sound"
+      },
+      {
+        "command": "codexNotifier.debugSnapshot",
+        "title": "Codex Notifier: Debug Snapshot"
+      },
+      {
+        "command": "codexNotifier.toggleAutoNotify",
+        "title": "Codex Notifier: Toggle Auto Notify"
+      },
+      {
+        "command": "codexNotifier.showDiagnostics",
+        "title": "Codex Notifier: Show Diagnostics"
+      }
+    ],
+    "keybindings": [
+      {
+        "command": "codexNotifier.notifyComplete",
+        "key": "ctrl+alt+.",
+        "mac": "cmd+alt+."
+      },
+      {
+        "command": "codexNotifier.notifyError",
+        "key": "ctrl+alt+,",
+        "mac": "cmd+alt+,"
+      }
+    ],
+    "configuration": {
+      "title": "Codex Notifier",
+      "properties": {
+        "codexNotifier.enableSound": {
+          "type": "boolean",
+          "default": true,
+          "description": "Play sound for notifications."
+        },
+        "codexNotifier.enablePopup": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show VS Code popup notifications."
+        },
+        "codexNotifier.completionUseBanner": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show completion/test notifications as banner popups. When false, completion/test use quiet status bar only."
+        },
+        "codexNotifier.toastWhenUnfocused": {
+          "type": "boolean",
+          "default": true,
+          "description": "On Windows, show system toast notifications when VS Code is not focused."
+        },
+        "codexNotifier.popupDurationMs": {
+          "type": "number",
+          "default": 1800,
+          "minimum": 300,
+          "description": "How long the completion status notification stays visible."
+        },
+        "codexNotifier.volume": {
+          "type": "number",
+          "default": 1,
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Sound volume (0-1)."
+        },
+        "codexNotifier.completeSoundPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to complete sound file (.wav/.mp3). Leave empty to use bundled notification2.wav."
+        },
+        "codexNotifier.errorSoundPath": {
+          "type": "string",
+          "default": "",
+          "description": "Absolute path to error sound file (.wav/.mp3). Leave empty to use bundled notification1.wav."
+        },
+        "codexNotifier.watchEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Watch a file trigger and notify when it changes."
+        },
+        "codexNotifier.watchFilePath": {
+          "type": "string",
+          "default": ".codex-notify",
+          "description": "File path to watch. Relative paths are resolved from workspace root."
+        },
+        "codexNotifier.monitorCodexChat": {
+          "type": "boolean",
+          "default": true,
+          "description": "Monitor Codex chat session documents and notify when response streaming appears complete."
+        },
+        "codexNotifier.codexChatIdleMs": {
+          "type": "number",
+          "default": 1800,
+          "minimum": 500,
+          "description": "How long Codex chat document must stay unchanged before complete notification fires."
+        },
+        "codexNotifier.codexChatCooldownMs": {
+          "type": "number",
+          "default": 4500,
+          "minimum": 0,
+          "description": "Minimum gap between Codex chat completion notifications."
+        },
+        "codexNotifier.codexChatPollMs": {
+          "type": "number",
+          "default": 600,
+          "minimum": 250,
+          "description": "Polling interval for Codex chat session document activity detection."
+        },
+        "codexNotifier.debug": {
+          "type": "boolean",
+          "default": false,
+          "description": "Enable debug logging to the Codex Notifier output channel."
+        },
+        "codexNotifier.monitorCodexLog": {
+          "type": "boolean",
+          "default": true,
+          "description": "Monitor VS Code Codex.log stream activity and notify when streaming goes idle."
+        },
+        "codexNotifier.codexLogPollMs": {
+          "type": "number",
+          "default": 500,
+          "minimum": 300,
+          "description": "Polling interval for Codex.log monitoring."
+        },
+        "codexNotifier.codexLogIdleMs": {
+          "type": "number",
+          "default": 900,
+          "minimum": 500,
+          "description": "Idle duration after last stream event before complete notification fires."
+        },
+        "codexNotifier.codexLogMinEvents": {
+          "type": "number",
+          "default": 1,
+          "minimum": 1,
+          "description": "Minimum number of stream-state events required before completion notification can fire."
+        },
+        "codexNotifier.codexLogMinBurstMs": {
+          "type": "number",
+          "default": 0,
+          "minimum": 0,
+          "description": "Minimum duration of stream burst required before completion notification can fire."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "lint": "echo \"No lint configured\""
+  },
+  "license": "MIT"
+}
+
+

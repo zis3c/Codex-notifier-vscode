@@ -1,0 +1,19 @@
+﻿{
+  // VS Code debug configuration for running this extension in an
+  // Extension Development Host window (press F5).
+  "version": "0.2.0",
+  "configurations": [
+    {
+      // Friendly name shown in Run and Debug dropdown.
+      "name": "Run Codex Notifier",
+      // Launch a second VS Code instance that loads this project as an extension.
+      "type": "extensionHost",
+      "request": "launch",
+      "runtimeExecutable": "${execPath}",
+      "args": [
+        // Tell VS Code which folder contains the extension under development.
+        "--extensionDevelopmentPath=${workspaceFolder}"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+﻿.vscode/**
+.git/**
+.gitignore
+.codex-notify
+*.vsix
+*.log
+node_modules/**
+
+# Local helper/scripts/docs not required at runtime
+codex-done.ps1
+README.md
