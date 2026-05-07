@@ -128,8 +128,7 @@ function showWindowsToast(title, message) {
 function resolveWatchPath(rawPath) {
   if (!rawPath) return null;
   if (path.isAbsolute(rawPath)) return rawPath;
-  const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!folder) return null;
+  const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
   return path.join(folder, rawPath);
 }
 
@@ -563,7 +562,8 @@ function startWatcher(context) {
 
   try {
     if (!fs.existsSync(targetPath)) {
-      fs.writeFileSync(targetPath, "", "utf8");
+      logDebug(`watch file missing, manual trigger disabled until file exists: ${targetPath}`);
+      return;
     }
 
     let lastContent = fs.readFileSync(targetPath, "utf8");

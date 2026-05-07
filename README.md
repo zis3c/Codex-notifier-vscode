@@ -38,6 +38,17 @@ A lightweight VS Code extension that notifies you when Codex responses finish us
 2. Open VS Code settings and search `Codex Notifier`.
 3. Run `Codex Notifier: Test Sound`.
 
+## How It Works
+
+1. On activation, the extension starts auto-detection watchers (Codex log/chat) and the manual file watcher.
+2. For manual mode, it resolves `codexNotifier.watchFilePath` (default: `.codex-notify`) from your workspace root.
+3. If no workspace folder is open, it falls back to the current process directory.
+4. If the file does not exist, nothing is created automatically (manual trigger stays off until file exists).
+5. When the file content changes:
+   - Contains `error` -> error notification
+   - Any other non-empty content -> complete notification
+6. Auto mode can notify completion directly from Codex stream activity, so manual file writes are optional.
+
 ## Recommended Settings
 
 ```json
