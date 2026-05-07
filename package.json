@@ -2,16 +2,8 @@
   "name": "codex-notifier",
   "displayName": "Codex Notifier",
   "description": "Notify with sound when work is complete.",
-  "version": "0.0.1",
-  "publisher": "local",
-  "homepage": "https://example.com/codex-notifier",
-  "repository": {
-    "type": "git",
-    "url": "https://example.com/codex-notifier.git"
-  },
-  "bugs": {
-    "url": "https://example.com/codex-notifier/issues"
-  },
+  "version": "0.1.0",
+  "publisher": "codex-notifier-local",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -183,7 +175,9 @@
     }
   },
   "scripts": {
-    "lint": "echo \"No lint configured\""
+    "check": "node ./scripts/validate-release.js",
+    "lint": "npm run check",
+    "release:check": "npm run check"
   },
   "license": "MIT"
 }
