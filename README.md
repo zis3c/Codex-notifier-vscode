@@ -1,9 +1,23 @@
-﻿# Codex Finish Notifier (VS Code Extension)
+<p align="center">
+  <img src="./logo.png" alt="Codex Notifier Logo" width="120" />
+</p>
 
-![VS Code](https://img.shields.io/badge/VS%20Code-Extension-007ACC?logo=visual-studio-code&logoColor=white)
-![JavaScript](https://img.shields.io/badge/JavaScript-Node.js-F7DF1E?logo=javascript&logoColor=black)
-![Platform](https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey)
-![License](https://img.shields.io/badge/License-MIT-green)
+<h1 align="center">Codex Notifier</h1>
+
+<p align="center">
+  Reliable completion and error notifications for Codex workflows in VS Code.
+</p>
+
+<p align="center">
+  <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
+    <img src="https://img.shields.io/visual-studio-marketplace/v/zis3c.codex-notifier?label=Marketplace&color=007ACC" alt="VS Code Marketplace Version" />
+  </a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
+    <img src="https://img.shields.io/visual-studio-marketplace/i/zis3c.codex-notifier?label=Installs" alt="VS Code Marketplace Installs" />
+  </a>
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Platform" />
+  <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
+</p>
 
 A lightweight VS Code extension that notifies you when Codex responses finish using sound and configurable UI alerts (quiet status or banner popup).
 
@@ -98,3 +112,4 @@ Notes:
 ## License
 
 MIT. See [LICENSE](./LICENSE).
+

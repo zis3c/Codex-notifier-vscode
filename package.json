@@ -2,8 +2,9 @@
   "name": "codex-notifier",
   "displayName": "Codex Notifier",
   "description": "Notify with sound when work is complete.",
-  "version": "0.1.0",
-  "publisher": "codex-notifier-local",
+  "version": "0.1.1",
+  "icon": "logo.png",
+  "publisher": "zis3c",
   "engines": {
     "vscode": "^1.80.0"
   },
@@ -180,6 +181,12 @@
     "release:check": "npm run check"
   },
   "license": "MIT"
+  ,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/zis3c/Codex-notifier-vscode.git"
+  }
 }
+
 
 
