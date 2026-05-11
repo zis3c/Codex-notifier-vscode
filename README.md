@@ -46,11 +46,33 @@ A lightweight VS Code extension that notifies you when Codex responses finish us
 | `Codex Notifier: Show Diagnostics` | Show runtime diagnostics snapshot |
 | `Codex Notifier: Debug Snapshot` | Print active docs/editors to output channel |
 
+## Installation
+
+### Option 1 (Recommended): VS Code Marketplace
+
+1. Open Extensions view in VS Code (`Ctrl+Shift+X`).
+2. Search `Codex Notifier`.
+3. Click **Install** on `zis3c.codex-notifier`.
+
+Direct link:
+- https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier
+
+### Option 2: Command Line
+
+```bash
+code --install-extension zis3c.codex-notifier
+```
+
+### Option 3: VSIX (Offline/Manual)
+
+See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
+
 ## Quick Start
 
-1. Install from VSIX (see [INSTALLATION.md](./INSTALLATION.md)).
-2. Open VS Code settings and search `Codex Notifier`.
-3. Run `Codex Notifier: Test Sound`.
+1. Open VS Code settings and search `Codex Notifier`.
+2. Keep defaults (recommended): sound on, auto-detection on.
+3. Run `Codex Notifier: Test Sound` from Command Palette.
+4. Ask Codex something and wait for response completion notification.
 
 ## How It Works
 

@@ -9,21 +9,34 @@ This guide explains how to install and run **Codex Finish Notifier**.
 Before installing, ensure you have:
 
 1. VS Code installed.
-2. A built `.vsix` file (example: `codex-notifier-private.vsix`).
+2. Internet access to VS Code Marketplace (for easiest install).
 
 ---
 
-## Option 1: Install From VSIX (Recommended for Users)
+## Option 1: Install From VS Code Extensions (Recommended for Users)
+
+1. Open VS Code.
+2. Open Extensions panel (`Ctrl+Shift+X`).
+3. Search: `Codex Notifier`.
+4. Find publisher: `zis3c`.
+5. Click **Install**.
+
+Direct Marketplace link:
+- https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier
+
+---
+
+## Option 2: Install From VSIX (Offline/Manual)
 
 1. Open VS Code.
 2. Go to Extensions panel.
 3. Click `...` -> `Install from VSIX...`.
-4. Choose `codex-notifier-private.vsix`.
+4. Choose your `.vsix` file.
 5. Click **Reload** when prompted.
 
 ---
 
-## Option 2: Run In Extension Development Host (For Contributors)
+## Option 3: Run In Extension Development Host (For Contributors)
 
 1. Open this project folder in VS Code.
 2. Press `F5`.
