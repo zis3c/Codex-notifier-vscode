@@ -101,7 +101,8 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 
 ## Documentation
 
-- Tutorial video: https://youtu.be/IpdNMO9YukI
+- Tutorial video (basic install + usage): https://youtu.be/IpdNMO9YukI
+- For sound customization and advanced settings, see [INSTALLATION.md](./INSTALLATION.md) and the [Recommended Settings](#recommended-settings) section above.
 - [INSTALLATION.md](./INSTALLATION.md)
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [SECURITY.md](./SECURITY.md)
