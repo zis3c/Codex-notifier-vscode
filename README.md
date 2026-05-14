@@ -101,6 +101,7 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 
 ## Documentation
 
+- Tutorial video: https://youtu.be/IpdNMO9YukI
 - [INSTALLATION.md](./INSTALLATION.md)
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [SECURITY.md](./SECURITY.md)
