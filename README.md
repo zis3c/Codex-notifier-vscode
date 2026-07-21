@@ -77,13 +77,14 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 ## How It Works
 
 1. On activation, the extension starts auto-detection watchers (Codex log/chat) and the manual file watcher.
-2. For manual mode, it resolves `codexNotifier.watchFilePath` (default: `.codex-notify`) from your workspace root.
+2. For manual mode, it resolves `codexNotifier.watchFilePath` (default: `.codex-notify`) from the current workspace folder or folders.
 3. If no workspace folder is open, it falls back to the current process directory.
-4. If the file does not exist, nothing is created automatically (manual trigger stays off until file exists).
-5. When the file content changes:
+4. If the workspace changes, the manual watcher refreshes so it follows the new folder.
+5. If the file does not exist, nothing is created automatically (manual trigger stays off until file exists).
+6. When the file content changes:
    - Contains `error` -> error notification
    - Any other non-empty content -> complete notification
-6. Auto mode watches Codex stream activity and waits for a real end-state signal, so opening or closing chat should not fire by itself.
+7. Auto mode watches Codex stream activity and waits for a real end-state signal, so opening or closing chat should not fire by itself.
 
 ## Recommended Settings
 
@@ -93,11 +94,11 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
   "codexNotifier.enablePopup": true,
   "codexNotifier.completionUseBanner": false,
   "codexNotifier.monitorCodexLog": true,
-  "codexNotifier.codexLogPollMs": 500,
-  "codexNotifier.codexLogIdleMs": 900,
+  "codexNotifier.codexLogPollMs": 400,
+  "codexNotifier.codexLogIdleMs": 500,
   "codexNotifier.codexChatCooldownMs": 4500,
-  "codexNotifier.codexLogMinEvents": 2,
-  "codexNotifier.codexLogMinBurstMs": 250
+  "codexNotifier.codexLogMinEvents": 1,
+  "codexNotifier.codexLogMinBurstMs": 0
 }
 ```
 

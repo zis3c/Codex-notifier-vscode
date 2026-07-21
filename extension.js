@@ -8,7 +8,7 @@ const { execFile } = require("child_process");
  * These variables keep watcher/timer handles and burst tracking so we can
  * reliably detect "response complete" without duplicate notifications.
  */
-let watcher = null;
+let watchers = [];
 let codexDocWatcher = null;
 let codexPoller = null;
 let codexState = new Map();
@@ -270,10 +270,20 @@ async function notify(kind, message, options = {}) {
 
 // Stop file watcher trigger (".codex-notify").
 function stopWatcher() {
-  if (watcher) {
-    watcher.close();
-    watcher = null;
+  if (watchers.length > 0) {
+    for (const watcher of watchers) {
+      try {
+        if (typeof watcher.dispose === "function") {
+          watcher.dispose();
+        } else if (typeof watcher.close === "function") {
+          watcher.close();
+        }
+      } catch {
+        // noop
+      }
+    }
   }
+  watchers = [];
 }
 
 // Stop Codex document-based monitoring.
@@ -618,37 +628,99 @@ function startWatcher(context) {
   if (!enabled) return;
 
   const rawPath = config.get("watchFilePath", ".codex-notify");
-  const targetPath = resolveWatchPath(rawPath);
-  if (!targetPath) return;
+  const workspaceRoots = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) || [];
+  const uniqueRoots = [...new Set(workspaceRoots)];
 
   try {
-    if (!fs.existsSync(targetPath)) {
-      logDebug(`watch file missing, manual trigger disabled until file exists: ${targetPath}`);
-      return;
-    }
+    if (path.isAbsolute(rawPath)) {
+      const targetPath = rawPath;
+      let lastContent = null;
+      const parentDir = path.dirname(targetPath);
+      const fileName = path.basename(targetPath);
 
-    let lastContent = fs.readFileSync(targetPath, "utf8");
+      const readAndNotify = async () => {
+        try {
+          if (!fs.existsSync(targetPath)) return;
+          const next = fs.readFileSync(targetPath, "utf8");
+          if (next === lastContent) return;
+          lastContent = next;
 
-    watcher = fs.watch(targetPath, { persistent: false }, async () => {
-      try {
-        const next = fs.readFileSync(targetPath, "utf8");
-        if (next === lastContent) return;
-        lastContent = next;
+          const trimmed = next.trim().toLowerCase();
+          if (!trimmed) return;
 
-        const trimmed = next.trim().toLowerCase();
-        if (!trimmed) return;
-
-        if (trimmed.includes("error")) {
-          await notify("error", "Codex: task error", { mode: "manual" });
-        } else {
-          await notify("complete", "Codex: response complete", { mode: "manual" });
+          if (trimmed.includes("error")) {
+            await notify("error", "Codex: task error", { mode: "manual" });
+          } else {
+            await notify("complete", "Codex: response complete", { mode: "manual" });
+          }
+        } catch {
+          // noop
         }
-      } catch {
-        // noop
-      }
-    });
+      };
 
-    context.subscriptions.push({ dispose: stopWatcher });
+      if (!fs.existsSync(parentDir)) {
+        logDebug(`watch parent missing, manual trigger disabled until parent exists: ${parentDir}`);
+        return;
+      }
+
+      if (fs.existsSync(targetPath)) {
+        lastContent = fs.readFileSync(targetPath, "utf8");
+        logDebug(`watching manual trigger file: ${targetPath}`);
+      } else {
+        logDebug(`watching for manual trigger file creation: ${targetPath}`);
+      }
+
+      const dirWatcher = fs.watch(parentDir, { persistent: false }, async (_eventType, filename) => {
+        if (!filename || path.basename(String(filename)) !== fileName) return;
+        await readAndNotify();
+      });
+      watchers.push(dirWatcher);
+    } else {
+      const roots = uniqueRoots.length > 0 ? uniqueRoots : [process.cwd()];
+
+      for (const root of roots) {
+        const targetPath = path.join(root, rawPath);
+        const pattern = new vscode.RelativePattern(vscode.Uri.file(root), rawPath);
+        const fileWatcher = vscode.workspace.createFileSystemWatcher(pattern, false, false, false);
+        let lastContent = null;
+
+        const readAndNotify = async () => {
+          try {
+            if (!fs.existsSync(targetPath)) return;
+            const next = fs.readFileSync(targetPath, "utf8");
+            if (next === lastContent) return;
+            lastContent = next;
+
+            const trimmed = next.trim().toLowerCase();
+            if (!trimmed) return;
+
+            if (trimmed.includes("error")) {
+              await notify("error", "Codex: task error", { mode: "manual" });
+            } else {
+              await notify("complete", "Codex: response complete", { mode: "manual" });
+            }
+          } catch {
+            // noop
+          }
+        };
+
+        if (fs.existsSync(targetPath)) {
+          lastContent = fs.readFileSync(targetPath, "utf8");
+          logDebug(`watching manual trigger file: ${targetPath}`);
+        } else {
+          logDebug(`watching for manual trigger file creation: ${targetPath}`);
+        }
+
+        fileWatcher.onDidCreate(readAndNotify);
+        fileWatcher.onDidChange(readAndNotify);
+        fileWatcher.onDidDelete(() => {
+          lastContent = null;
+          logDebug(`manual trigger file deleted: ${targetPath}`);
+        });
+
+        watchers.push(fileWatcher);
+      }
+    }
   } catch {
     // noop
   }
@@ -758,6 +830,14 @@ function activate(context) {
       }
     })
   );
+
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      startWatcher(context);
+    })
+  );
+
+  context.subscriptions.push({ dispose: stopWatcher });
 
   startWatcher(context);
   startCodexDocumentWatcher(context);

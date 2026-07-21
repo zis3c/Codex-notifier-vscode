@@ -2,7 +2,7 @@
   "name": "codex-notifier",
   "displayName": "Codex Notifier",
   "description": "Notify with sound when work is complete.",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "icon": "logo.png",
   "publisher": "zis3c",
   "engines": {
@@ -145,25 +145,25 @@
         },
         "codexNotifier.codexLogPollMs": {
           "type": "number",
-          "default": 500,
+          "default": 400,
           "minimum": 300,
           "description": "Polling interval for Codex.log monitoring."
         },
         "codexNotifier.codexLogIdleMs": {
           "type": "number",
-          "default": 900,
+          "default": 500,
           "minimum": 500,
           "description": "Idle duration after last stream event before complete notification fires."
         },
         "codexNotifier.codexLogMinEvents": {
           "type": "number",
-          "default": 2,
+          "default": 1,
           "minimum": 1,
           "description": "Minimum number of stream-state events required before completion notification can fire."
         },
         "codexNotifier.codexLogMinBurstMs": {
           "type": "number",
-          "default": 250,
+          "default": 0,
           "minimum": 0,
           "description": "Minimum duration of stream burst required before completion notification can fire."
         }

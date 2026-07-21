@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.6] - 2026-07-21
+
+- Fixed workspace switching so Codex Notifier keeps watching the active folder instead of staying stuck on the first workspace.
+- Improved manual `.codex-notify` handling so a new trigger file can be created after the extension is already running.
+- Lowered the default auto-detect burst thresholds so fresh workspaces do not depend on folder-local settings to fire notifications.
+
 ## [0.1.5] - 2026-07-21
 
 - Release cut for the Codex 26.715.31925 compatibility fix and the follow-up auto-detect polish.
