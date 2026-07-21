@@ -52,6 +52,9 @@ Direct Marketplace link:
    - `codexNotifier.enableSound = true`
 2. Run `Codex Notifier: Test Sound`.
 3. Confirm you hear sound and see status/banner based on your settings.
+4. Leave the auto-detect defaults alone unless you need to tune false positives:
+   - `codexNotifier.codexLogMinEvents = 2`
+   - `codexNotifier.codexLogMinBurstMs = 250`
 
 ---
 
@@ -74,6 +77,7 @@ Direct Marketplace link:
 
 - **No auto completion notify**
   - Ensure `codexNotifier.monitorCodexLog = true`.
+  - Leave `codexNotifier.codexLogMinEvents` and `codexNotifier.codexLogMinBurstMs` at their safer defaults unless you have a special case.
   - Run `Codex Notifier: Show Diagnostics`.
 
 - **Too many notifications**

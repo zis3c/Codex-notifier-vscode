@@ -39,8 +39,9 @@ Thanks for contributing. Bug fixes, docs improvements, and UX refinements are we
 - `node --check extension.js` passes.
 - `package.json` stays valid JSON.
 - `Codex Notifier: Test Sound` works.
-- Completion notify fires once per response burst.
+- Completion notify fires once per real response burst, not on open or close chatter.
 - Quiet/banner toggle behaves correctly.
+- Auto-detect stays quiet on chat open and chat quit.
 
 ## Packaging Notes
 

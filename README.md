@@ -30,7 +30,7 @@ A lightweight VS Code extension that notifies you when Codex responses finish us
 - Bundled sound defaults (no custom setup required):
   - Complete -> `notification2.wav`
   - Error -> `notification1.wav`
-- Auto completion detection from Codex stream logs.
+- Auto completion detection from Codex stream logs with safer burst checks.
 - Optional document-based idle detection fallback.
 - Quiet mode or banner mode for completion notifications.
 - Manual trigger support through `.codex-notify` and `codex-done.ps1`.
@@ -70,7 +70,7 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 ## Quick Start
 
 1. Open VS Code settings and search `Codex Notifier`.
-2. Keep defaults (recommended): sound on, auto-detection on.
+2. Keep defaults (recommended): sound on, auto-detection on, safer burst thresholds.
 3. Run `Codex Notifier: Test Sound` from Command Palette.
 4. Ask Codex something and wait for response completion notification.
 
@@ -83,7 +83,7 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 5. When the file content changes:
    - Contains `error` -> error notification
    - Any other non-empty content -> complete notification
-6. Auto mode can notify completion directly from Codex stream activity, so manual file writes are optional.
+6. Auto mode watches Codex stream activity and waits for a real end-state signal, so opening or closing chat should not fire by itself.
 
 ## Recommended Settings
 
@@ -95,7 +95,9 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
   "codexNotifier.monitorCodexLog": true,
   "codexNotifier.codexLogPollMs": 500,
   "codexNotifier.codexLogIdleMs": 900,
-  "codexNotifier.codexChatCooldownMs": 4500
+  "codexNotifier.codexChatCooldownMs": 4500,
+  "codexNotifier.codexLogMinEvents": 2,
+  "codexNotifier.codexLogMinBurstMs": 250
 }
 ```
 

@@ -2,7 +2,7 @@
   "name": "codex-notifier",
   "displayName": "Codex Notifier",
   "description": "Notify with sound when work is complete.",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "icon": "logo.png",
   "publisher": "zis3c",
   "engines": {
@@ -12,12 +12,7 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished",
-    "onCommand:codexNotifier.notifyComplete",
-    "onCommand:codexNotifier.notifyError",
-    "onCommand:codexNotifier.testSound",
-    "onCommand:codexNotifier.toggleAutoNotify",
-    "onCommand:codexNotifier.showDiagnostics"
+    "onStartupFinished"
   ],
   "main": "./extension.js",
   "contributes": {
@@ -162,13 +157,13 @@
         },
         "codexNotifier.codexLogMinEvents": {
           "type": "number",
-          "default": 1,
+          "default": 2,
           "minimum": 1,
           "description": "Minimum number of stream-state events required before completion notification can fire."
         },
         "codexNotifier.codexLogMinBurstMs": {
           "type": "number",
-          "default": 0,
+          "default": 250,
           "minimum": 0,
           "description": "Minimum duration of stream burst required before completion notification can fire."
         }

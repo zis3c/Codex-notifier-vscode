@@ -22,8 +22,10 @@ let codexLogPending = false;
 let codexLogFirstActivityAt = 0;
 let codexLogLastActivityAt = 0;
 let codexLogActivityCount = 0;
+let codexLogSawWorkSignal = false;
 let codexLogBurstNotified = false;
 let codexLogMaybeDoneAt = 0;
+let codexLogBurstStartLogged = false;
 let statusItem = null;
 let statusTimer = null;
 
@@ -42,12 +44,13 @@ function getDiagnosticsSummary() {
     codexLogPollMs: cfg.get("codexLogPollMs", 700),
     codexLogIdleMs: cfg.get("codexLogIdleMs", 1400),
     codexChatCooldownMs: cfg.get("codexChatCooldownMs", 5000),
-    codexLogMinEvents: cfg.get("codexLogMinEvents", 3),
-    codexLogMinBurstMs: cfg.get("codexLogMinBurstMs", 500),
+    codexLogMinEvents: cfg.get("codexLogMinEvents", 2),
+    codexLogMinBurstMs: cfg.get("codexLogMinBurstMs", 250),
     volume: cfg.get("volume", 1),
     trackedLogFiles: codexLogOffsets.size,
     pending: codexLogPending,
     activityCount: codexLogActivityCount,
+    sawWorkSignal: codexLogSawWorkSignal,
     firstActivityAt: fmtTs(codexLogFirstActivityAt),
     lastActivityAt: fmtTs(codexLogLastActivityAt),
     lastNotifyAt: fmtTs(lastCodexNotifyAt)
@@ -306,8 +309,21 @@ function stopCodexLogWatcher() {
   codexLogFirstActivityAt = 0;
   codexLogLastActivityAt = 0;
   codexLogActivityCount = 0;
+  codexLogSawWorkSignal = false;
   codexLogBurstNotified = false;
   codexLogMaybeDoneAt = 0;
+  codexLogBurstStartLogged = false;
+}
+
+function resetCodexLogBurstState() {
+  codexLogPending = false;
+  codexLogFirstActivityAt = 0;
+  codexLogLastActivityAt = 0;
+  codexLogActivityCount = 0;
+  codexLogSawWorkSignal = false;
+  codexLogBurstNotified = false;
+  codexLogMaybeDoneAt = 0;
+  codexLogBurstStartLogged = false;
 }
 
 function getCodexLogRoots() {
@@ -371,7 +387,7 @@ function isLikelyCodexDocument(doc) {
  * Strategy:
  * 1) track stream-state activity bursts
  * 2) wait until burst goes idle
- * 3) require read-state signal to avoid noise-triggered spam
+ * 3) wait for an explicit end-state marker from Codex logs
  * 4) enforce cooldown + per-burst dedupe
  */
 function startCodexLogWatcher() {
@@ -384,9 +400,13 @@ function startCodexLogWatcher() {
   const pollMsRaw = cfg.get("codexLogPollMs", 300);
   const idleMsRaw = cfg.get("codexLogIdleMs", 700);
   const cooldownMsRaw = cfg.get("codexChatCooldownMs", 4500);
+  const minEventsRaw = cfg.get("codexLogMinEvents", 2);
+  const minBurstMsRaw = cfg.get("codexLogMinBurstMs", 250);
   const pollMs = Number.isFinite(pollMsRaw) ? Math.max(300, pollMsRaw) : 700;
   const idleMs = Number.isFinite(idleMsRaw) ? Math.max(300, idleMsRaw) : 1400;
   const cooldownMs = Number.isFinite(cooldownMsRaw) ? Math.max(0, cooldownMsRaw) : 4500;
+  const minEvents = Number.isFinite(minEventsRaw) ? Math.max(1, minEventsRaw) : 1;
+  const minBurstMs = Number.isFinite(minBurstMsRaw) ? Math.max(0, minBurstMsRaw) : 0;
 
   codexLogPoller = setInterval(async () => {
     const files = findAllCodexLogFiles();
@@ -425,26 +445,41 @@ function startCodexLogWatcher() {
         const chunk = buffer.toString("utf8");
         const now = Date.now();
         const streamHits = (chunk.match(/thread-stream-state-changed/g) || []).length;
+        const viewActiveTrueHits = (chunk.match(/thread_stream_view_activity_changed active=true/g) || []).length;
+        const viewActiveFalseHits = (chunk.match(/thread_stream_view_activity_changed active=false/g) || []).length;
         const readHits = (chunk.match(/thread-read-state-changed/g) || []).length;
-        const hitCount = streamHits;
+        const summaryHits = (chunk.match(/Reasoning summary item completed/g) || []).length;
+        const turnStartHits = (chunk.match(/Reasoning summary turn-start/g) || []).length;
+        const clientStatusHits = (chunk.match(/client-status-changed/g) || []).length;
+        const hitCount = streamHits + readHits;
         if (hitCount > 0) {
-          if (!codexLogPending || (now - codexLogLastActivityAt > idleMs)) {
+          const burstStarted = !codexLogPending || (now - codexLogLastActivityAt > idleMs);
+          if (burstStarted) {
             codexLogFirstActivityAt = now;
             codexLogActivityCount = 0;
+            codexLogSawWorkSignal = false;
             codexLogBurstNotified = false;
             codexLogMaybeDoneAt = 0;
+            codexLogBurstStartLogged = false;
           }
           codexLogPending = true;
           codexLogLastActivityAt = now;
           codexLogActivityCount += hitCount;
-          logDebug(`codex thread activity file=${file} hits=${hitCount} total=${codexLogActivityCount}`);
+          codexLogSawWorkSignal = true;
+          if (burstStarted && !codexLogBurstStartLogged) {
+            codexLogBurstStartLogged = true;
+            logDebug(`codex burst started file=${file} stream=${streamHits} read=${readHits} total=${codexLogActivityCount}`);
+          }
         }
 
-        // Read-state is "maybe done", but we still wait a short quiet grace period
-        // to avoid notifying before final visible tokens land.
-        if (readHits > 0 && codexLogPending && !codexLogBurstNotified) {
+        // Only the explicit inactive view state is treated as the end marker.
+        // Reasoning summary items still happen during thinking, so they are
+        // tracked for diagnostics only.
+        if (codexLogPending && !codexLogBurstNotified && codexLogSawWorkSignal && viewActiveFalseHits > 0) {
+          if (!codexLogMaybeDoneAt) {
+            logDebug(`end-state signal seen; waiting for quiet grace viewOff=${viewActiveFalseHits}`);
+          }
           codexLogMaybeDoneAt = now;
-          logDebug(`read-state seen; waiting for quiet grace hits=${readHits}`);
         }
       } catch {
         // noop
@@ -456,22 +491,29 @@ function startCodexLogWatcher() {
     const now = Date.now();
     if (!codexLogPending) return;
     if (now - codexLogLastActivityAt < idleMs) return;
-    // Ignore noisy bursts that never reached read-state completion signal.
-    if (!codexLogMaybeDoneAt) {
-      logDebug(`reset quiet logs without read-state count=${codexLogActivityCount}`);
-      codexLogPending = false;
-      codexLogFirstActivityAt = 0;
-      codexLogLastActivityAt = 0;
-      codexLogActivityCount = 0;
-      codexLogBurstNotified = false;
-      codexLogMaybeDoneAt = 0;
+    if (!codexLogSawWorkSignal) {
+      logDebug(`reset quiet logs without work signal count=${codexLogActivityCount}`);
+      resetCodexLogBurstState();
+      return;
+    }
+    const activityDurationMs = codexLogLastActivityAt - codexLogFirstActivityAt;
+    const meetsBurstMinimums = codexLogActivityCount >= minEvents && activityDurationMs >= minBurstMs;
+
+    if (!meetsBurstMinimums) {
+      logDebug(
+        `reset quiet logs below minimums count=${codexLogActivityCount} minEvents=${minEvents} durMs=${activityDurationMs} minBurstMs=${minBurstMs}`
+      );
+      resetCodexLogBurstState();
       return;
     }
     const graceMs = 350;
-    if (codexLogMaybeDoneAt && now - codexLogMaybeDoneAt < graceMs) return;
+    if (!codexLogMaybeDoneAt) {
+      codexLogMaybeDoneAt = now;
+      return;
+    }
+    if (now - codexLogMaybeDoneAt < graceMs) return;
 
     const notCoolingDown = now - lastCodexNotifyAt >= cooldownMs;
-    const activityDurationMs = codexLogLastActivityAt - codexLogFirstActivityAt;
     if (notCoolingDown && !codexLogBurstNotified) {
       lastCodexNotifyAt = now;
       codexLogBurstNotified = true;
@@ -481,12 +523,7 @@ function startCodexLogWatcher() {
       logDebug(`reset quiet logs cooling=${notCoolingDown} durMs=${activityDurationMs} count=${codexLogActivityCount}`);
     }
 
-    codexLogPending = false;
-    codexLogFirstActivityAt = 0;
-    codexLogLastActivityAt = 0;
-    codexLogActivityCount = 0;
-    codexLogBurstNotified = false;
-    codexLogMaybeDoneAt = 0;
+    resetCodexLogBurstState();
   }, Math.min(500, Math.max(250, Math.floor(idleMs / 3))));
 }
 
@@ -619,8 +656,7 @@ function startWatcher(context) {
 
 async function maybeShowPostUpdateReloadHint(context) {
   try {
-    const ext = vscode.extensions.getExtension("local.codex-notifier");
-    const currentVersion = ext?.packageJSON?.version;
+    const currentVersion = context.extension?.packageJSON?.version;
     if (!currentVersion) return;
 
     const key = "codexNotifier.lastSeenVersion";

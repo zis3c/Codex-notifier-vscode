@@ -2,6 +2,16 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.5] - 2026-07-21
+
+- Release cut for the Codex 26.715.31925 compatibility fix and the follow-up auto-detect polish.
+
+## [0.1.4] - 2026-07-21
+
+- Tightened Codex auto-detect so open and close chatter does not fire notifications on its own.
+- Reduced debug log noise by logging burst start and completion edges instead of every poll hit.
+- Raised the default auto-detect burst threshold a bit for safer completion detection.
+
 ## [0.1.0] - 2026-05-07
 
 - Promoted release version from `0.0.1` to `0.1.0` for VSIX distribution maturity.
