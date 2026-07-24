@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.7] - 2026-07-24
+
+- Added unfocused system notifications so Codex responses can alert you even when VS Code is not the active window.
+- Extended the unfocused notification path beyond Windows to support macOS and Linux where available.
+
 ## [0.1.6] - 2026-07-21
 
 - Fixed workspace switching so Codex Notifier keeps watching the active folder instead of staying stuck on the first workspace.

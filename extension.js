@@ -127,6 +127,32 @@ function showWindowsToast(title, message) {
   });
 }
 
+// Cross-platform system notification helper for when VS Code is not focused.
+function showSystemNotification(title, message) {
+  return new Promise((resolve) => {
+    if (process.platform === "win32") {
+      void showWindowsToast(title, message).finally(resolve);
+      return;
+    }
+
+    if (process.platform === "darwin") {
+      execFile(
+        "osascript",
+        ["-e", `display notification ${JSON.stringify(message)} with title ${JSON.stringify(title)}`],
+        () => resolve()
+      );
+      return;
+    }
+
+    if (process.platform === "linux") {
+      execFile("notify-send", [title, message], () => resolve());
+      return;
+    }
+
+    resolve();
+  });
+}
+
 // Resolve watched trigger file path from workspace-relative config.
 function resolveWatchPath(rawPath) {
   if (!rawPath) return null;
@@ -239,6 +265,8 @@ async function notify(kind, message, options = {}) {
   const completionUseBanner = config.get("completionUseBanner", false);
   const toastWhenUnfocused = config.get("toastWhenUnfocused", true);
   const enableSound = config.get("enableSound", true);
+  const isFocused = vscode.window.state.focused;
+  const shouldSystemNotify = enablePopup && toastWhenUnfocused && !isFocused;
   const volumeRaw = config.get("volume", 1);
   const volume = Number.isFinite(volumeRaw) ? Math.max(0, Math.min(1, volumeRaw)) : 1;
   const completeSoundPath = config.get("completeSoundPath", "");
@@ -246,14 +274,16 @@ async function notify(kind, message, options = {}) {
 
   if (enablePopup) {
     if (kind === "error") {
-      vscode.window.showErrorMessage(message);
+      if (shouldSystemNotify) {
+        await showSystemNotification("Codex Notifier", message);
+      } else {
+        vscode.window.showErrorMessage(message);
+      }
     } else {
-      if (completionUseBanner) {
-        if (toastWhenUnfocused && process.platform === "win32" && !vscode.window.state.focused) {
-          await showWindowsToast("Codex Notifier", message);
-        } else {
-          vscode.window.showInformationMessage(message);
-        }
+      if (shouldSystemNotify) {
+        await showSystemNotification("Codex Notifier", message);
+      } else if (completionUseBanner) {
+        vscode.window.showInformationMessage(message);
       } else {
         // Quiet mode: hide banner and show only status bar.
         showQuickStatus(message, kind);

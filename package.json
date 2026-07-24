@@ -2,7 +2,7 @@
   "name": "codex-notifier",
   "displayName": "Codex Notifier",
   "description": "Notify with sound when work is complete.",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "icon": "logo.png",
   "publisher": "zis3c",
   "engines": {
@@ -75,7 +75,7 @@
         "codexNotifier.toastWhenUnfocused": {
           "type": "boolean",
           "default": true,
-          "description": "On Windows, show system toast notifications when VS Code is not focused."
+          "description": "Show system notifications when VS Code is not focused."
         },
         "codexNotifier.popupDurationMs": {
           "type": "number",
