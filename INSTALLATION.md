@@ -74,6 +74,9 @@ Direct Marketplace link:
 - Keep `codexNotifier.watchFilePath` relative (the default is `.codex-notify`) to watch the trigger file on the SSH host.
 - Absolute trigger and custom sound paths refer to the local computer.
 - Run `Codex Notifier: Show Diagnostics` to confirm the remote name and workspace URI scheme.
+- As a fallback, package `remote-companion/` and install its VSIX on the SSH
+  side. Keep the main Codex Notifier installed locally; the companion forwards
+  completion events to its local notification command.
 
 ---
 
