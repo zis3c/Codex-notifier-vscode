@@ -14,6 +14,9 @@
   "activationEvents": [
     "onStartupFinished"
   ],
+  "extensionKind": [
+    "ui"
+  ],
   "main": "./extension.js",
   "contributes": {
     "commands": [
@@ -108,7 +111,7 @@
         "codexNotifier.watchFilePath": {
           "type": "string",
           "default": ".codex-notify",
-          "description": "File path to watch. Relative paths are resolved from workspace root."
+          "description": "File path to watch. Relative paths are resolved from each local or remote workspace root. Absolute paths are resolved on the local UI machine."
         },
         "codexNotifier.monitorCodexChat": {
           "type": "boolean",

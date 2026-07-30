@@ -39,6 +39,8 @@ function fmtTs(ms) {
 function getDiagnosticsSummary() {
   const cfg = getConfig();
   return {
+    remoteName: vscode.env.remoteName || "local",
+    workspaceSchemes: vscode.workspace.workspaceFolders?.map((folder) => folder.uri.scheme).join(", ") || "none",
     monitorCodexLog: cfg.get("monitorCodexLog", true),
     monitorCodexChat: cfg.get("monitorCodexChat", true),
     codexLogPollMs: cfg.get("codexLogPollMs", 700),
@@ -151,14 +153,6 @@ function showSystemNotification(title, message) {
 
     resolve();
   });
-}
-
-// Resolve watched trigger file path from workspace-relative config.
-function resolveWatchPath(rawPath) {
-  if (!rawPath) return null;
-  if (path.isAbsolute(rawPath)) return rawPath;
-  const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? process.cwd();
-  return path.join(folder, rawPath);
 }
 
 // Fallback alert tone when no custom sound file is configured.
@@ -658,8 +652,6 @@ function startWatcher(context) {
   if (!enabled) return;
 
   const rawPath = config.get("watchFilePath", ".codex-notify");
-  const workspaceRoots = vscode.workspace.workspaceFolders?.map((folder) => folder.uri.fsPath) || [];
-  const uniqueRoots = [...new Set(workspaceRoots)];
 
   try {
     if (path.isAbsolute(rawPath)) {
@@ -706,18 +698,38 @@ function startWatcher(context) {
       });
       watchers.push(dirWatcher);
     } else {
-      const roots = uniqueRoots.length > 0 ? uniqueRoots : [process.cwd()];
+      // Relative workspace files can live behind a remote/virtual file-system
+      // provider. Keep their URI scheme/authority intact and use the VS Code
+      // file-system API instead of treating uri.fsPath as a local Node.js path.
+      const normalizedPath = rawPath.replace(/\\/g, "/").replace(/^\.\/+/, "");
+      const pathSegments = normalizedPath.split("/").filter(Boolean);
+      const workspaceFolders = vscode.workspace.workspaceFolders || [];
+      const roots = workspaceFolders.length > 0
+        ? workspaceFolders.map((folder) => ({
+          patternBase: folder,
+          rootUri: folder.uri
+        }))
+        : [{
+          patternBase: process.cwd(),
+          rootUri: vscode.Uri.file(process.cwd())
+        }];
 
       for (const root of roots) {
-        const targetPath = path.join(root, rawPath);
-        const pattern = new vscode.RelativePattern(vscode.Uri.file(root), rawPath);
+        const targetUri = vscode.Uri.joinPath(root.rootUri, ...pathSegments);
+        const pattern = new vscode.RelativePattern(root.patternBase, normalizedPath);
         const fileWatcher = vscode.workspace.createFileSystemWatcher(pattern, false, false, false);
         let lastContent = null;
+        let initialized = false;
 
         const readAndNotify = async () => {
           try {
-            if (!fs.existsSync(targetPath)) return;
-            const next = fs.readFileSync(targetPath, "utf8");
+            const bytes = await vscode.workspace.fs.readFile(targetUri);
+            const next = Buffer.from(bytes).toString("utf8");
+            if (!initialized) {
+              lastContent = next;
+              initialized = true;
+              return;
+            }
             if (next === lastContent) return;
             lastContent = next;
 
@@ -730,22 +742,34 @@ function startWatcher(context) {
               await notify("complete", "Codex: response complete", { mode: "manual" });
             }
           } catch {
-            // noop
+            // The trigger file is optional and may not exist yet.
           }
         };
 
-        if (fs.existsSync(targetPath)) {
-          lastContent = fs.readFileSync(targetPath, "utf8");
-          logDebug(`watching manual trigger file: ${targetPath}`);
-        } else {
-          logDebug(`watching for manual trigger file creation: ${targetPath}`);
-        }
+        const initialize = (async () => {
+          try {
+            const bytes = await vscode.workspace.fs.readFile(targetUri);
+            lastContent = Buffer.from(bytes).toString("utf8");
+            logDebug(`watching manual trigger file: ${targetUri.toString()}`);
+          } catch {
+            logDebug(`watching for manual trigger file creation: ${targetUri.toString()}`);
+          } finally {
+            initialized = true;
+          }
+        })();
 
-        fileWatcher.onDidCreate(readAndNotify);
-        fileWatcher.onDidChange(readAndNotify);
+        fileWatcher.onDidCreate(async () => {
+          await initialize;
+          await readAndNotify();
+        });
+        fileWatcher.onDidChange(async () => {
+          await initialize;
+          await readAndNotify();
+        });
         fileWatcher.onDidDelete(() => {
           lastContent = null;
-          logDebug(`manual trigger file deleted: ${targetPath}`);
+          initialized = true;
+          logDebug(`manual trigger file deleted: ${targetUri.toString()}`);
         });
 
         watchers.push(fileWatcher);

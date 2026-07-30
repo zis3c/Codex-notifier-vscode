@@ -28,6 +28,10 @@ function assertPackageJson() {
   if (!pkg.main) {
     throw new Error("package.json: missing main entry.");
   }
+
+  if (!Array.isArray(pkg.extensionKind) || pkg.extensionKind[0] !== "ui") {
+    throw new Error("package.json: extensionKind must prefer the local UI host so notifications work in remote workspaces.");
+  }
 }
 
 function main() {

@@ -67,6 +67,14 @@ Direct Marketplace link:
   - `codexNotifier.completionUseBanner = true` (banner)
   - `codexNotifier.completionUseBanner = false` (quiet status bar)
 
+## Remote SSH
+
+- Install the extension in the local VS Code UI. It is declared as a UI extension so notifications and sound play on the computer running VS Code.
+- Open the remote folder with **Remote - SSH** as usual.
+- Keep `codexNotifier.watchFilePath` relative (the default is `.codex-notify`) to watch the trigger file on the SSH host.
+- Absolute trigger and custom sound paths refer to the local computer.
+- Run `Codex Notifier: Show Diagnostics` to confirm the remote name and workspace URI scheme.
+
 ---
 
 ## Troubleshooting
