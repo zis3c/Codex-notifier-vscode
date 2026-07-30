@@ -22,7 +22,7 @@
 A lightweight VS Code extension that notifies you when Codex responses finish using sound and configurable UI alerts (quiet status or banner popup).
 
 > [!NOTE]
-> Built for fast feedback loops: you can use auto-detection from Codex logs/chat, or manual file-trigger flow via `.codex-notify`.
+> Built for fast feedback loops: use automatic Codex session completion detection or the manual `.codex-notify` file trigger.
 
 ## Features
 
@@ -77,7 +77,7 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 
 ## How It Works
 
-1. On activation, the extension starts auto-detection watchers (Codex log/chat) and the manual file watcher.
+1. On activation, the extension starts the Codex session completion detector and the manual file watcher.
 2. For manual mode, it resolves `codexNotifier.watchFilePath` (default: `.codex-notify`) from the current workspace folder or folders.
 3. If no workspace folder is open, it falls back to the current process directory.
 4. If the workspace changes, the manual watcher refreshes so it follows the new folder.
@@ -85,18 +85,20 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 6. When the file content changes:
    - Contains `error` -> error notification
    - Any other non-empty content -> complete notification
-7. Auto mode watches Codex stream activity and waits for a real end-state signal, so opening or closing chat should not fire by itself.
+7. Auto mode tails Codex session JSONL files and reacts only to authoritative `task_complete` events.
 
 ### Remote SSH Workspaces
 
-Codex Notifier runs in VS Code's local UI extension host, so sounds, status messages, and system notifications are produced on your local computer even when the workspace is opened through Remote SSH. It discovers the Codex extension logs on the SSH host through VS Code's remote file-system API and watches explicit per-conversation completion signals.
+Codex Notifier remains a single extension running in VS Code's local UI
+extension host, so sounds and notifications are produced on your computer. In a
+Remote SSH window it reads `~/.codex/sessions/**/*.jsonl` through VS Code's
+remote file-system API and reacts to authoritative `task_complete` events.
 
 The default relative trigger path (`.codex-notify`) is watched through VS Code's remote file-system API. In a multi-root workspace, one trigger is watched in each root. Absolute `watchFilePath` values still refer to the local UI machine; use a relative path to watch a file on the SSH host.
 
-If the local UI extension cannot read the VS Code Server log directory, install
-the optional [`remote-companion`](./remote-companion/) VSIX on the SSH host. It
-watches Codex session JSONL files remotely and forwards authoritative
-`task_complete` events to the local notifier command.
+The remote home directory is inferred from the workspace URI. For unusual
+layouts, set `codexNotifier.remoteSessionsPath` to the absolute remote sessions
+directory.
 
 ## Recommended Settings
 

@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-07-30
+
+- Consolidated Remote SSH detection and local sound playback into one UI extension.
+- Replaced `Codex.log` WebView activity inference with authoritative
+  `task_complete` events from Codex session JSONL files.
+- Added remote session discovery through `vscode.workspace.fs` and configurable
+  local/remote session paths.
+
 ## [0.1.9] - 2026-07-30
 
 - Added detailed log-source diagnostics for troubleshooting Remote SSH auto-detection.
