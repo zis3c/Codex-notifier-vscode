@@ -24,17 +24,25 @@ Module._load = function (request, parent, isMain) {
 };
 const companion = require("./extension");
 
-companion._test.consumeLines(
-  "Reasoning summary turn-start x conversationId=abc\n" +
-  "thread_stream_view_activity_changed active=false x conversationId=abc\n",
-  true
-);
+const started = JSON.stringify({
+  timestamp: "2026-07-30T20:00:00Z",
+  type: "event_msg",
+  payload: { type: "task_started", turn_id: "turn-1" }
+});
+const completed = JSON.stringify({
+  timestamp: "2026-07-30T20:00:01Z",
+  type: "event_msg",
+  payload: { type: "task_complete", turn_id: "turn-1" }
+});
+
+assert.strictEqual(companion._test.parseSessionLine(started), undefined);
+assert.strictEqual(companion._test.parseSessionLine(completed), "turn-1");
+
+companion._test.consumeSessionText("session.jsonl", `${started}\n${completed}\n`, true);
 assert.deepStrictEqual(commands, ["codexNotifier.notifyComplete"]);
 
-companion._test.consumeLines(
-  "thread_stream_view_activity_changed active=false x conversationId=unknown\n",
-  true
-);
+// Duplicate completion events must not produce duplicate sounds.
+companion._test.consumeSessionText("session.jsonl", `${completed}\n`, true);
 assert.strictEqual(commands.length, 1);
 
 console.log("remote companion tests passed");

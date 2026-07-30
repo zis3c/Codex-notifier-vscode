@@ -2,19 +2,20 @@ const vscode = require("vscode");
 const fs = require("fs");
 const path = require("path");
 
-const POLL_INTERVAL_MS = 1000;
-const DISCOVERY_INTERVAL_MS = 5000;
-const INITIAL_READ_LIMIT = 1024 * 1024;
-const TURN_START = /Reasoning summary turn-start\b.*\bconversationId=([^\s]+)/;
-const STREAM_INACTIVE = /thread_stream_view_activity_changed active=false\b.*\bconversationId=([^\s]+)/;
+const POLL_INTERVAL_MS = 500;
+const DISCOVERY_INTERVAL_MS = 1000;
+const LOCK_PATH = "/tmp/codex-notifier-remote-companion.lock";
 
 let timer;
 let output;
 let lastDiscoveryAt = 0;
 let notificationCount = 0;
 let lastNotificationAt = "never";
+let isLeader = false;
+let hasCompletedInitialDiscovery = false;
 const offsets = new Map();
-const pendingConversations = new Set();
+const remainders = new Map();
+const completedTurnIds = new Set();
 
 function getOutput() {
   output ||= vscode.window.createOutputChannel("Codex Notifier Remote");
@@ -25,141 +26,102 @@ function log(message) {
   getOutput().appendLine(`${new Date().toISOString()} ${message}`);
 }
 
-function getLogRoot() {
-  const agentFolder = process.env.VSCODE_AGENT_FOLDER;
-  if (agentFolder) {
-    return path.join(agentFolder, "data", "logs");
-  }
-  return path.join(process.env.HOME || "", ".vscode-server", "data", "logs");
+function getSessionsRoot() {
+  const codexHome = process.env.CODEX_HOME
+    || path.join(process.env.HOME || "", ".codex");
+  return path.join(codexHome, "sessions");
 }
 
-function discoverLogFiles() {
-  const root = getLogRoot();
-  let sessions;
+function directoriesAt(root) {
   try {
-    sessions = fs.readdirSync(root, { withFileTypes: true })
+    return fs.readdirSync(root, { withFileTypes: true })
       .filter(entry => entry.isDirectory())
       .map(entry => entry.name)
-      .sort()
-      .slice(-4);
-  } catch (error) {
-    log(`log discovery failed at ${root}: ${error.message}`);
+      .sort();
+  } catch {
     return [];
   }
+}
 
+function discoverSessionFiles() {
+  const root = getSessionsRoot();
   const result = [];
-  for (const session of sessions) {
-    const sessionDir = path.join(root, session);
-    let hosts = [];
-    try {
-      hosts = fs.readdirSync(sessionDir, { withFileTypes: true })
-        .filter(entry => entry.isDirectory() && entry.name.startsWith("exthost"))
-        .map(entry => entry.name);
-    } catch {
-      continue;
-    }
-    for (const host of hosts) {
-      const candidate = path.join(sessionDir, host, "openai.chatgpt", "Codex.log");
-      if (fs.existsSync(candidate)) {
-        result.push(candidate);
+  for (const year of directoriesAt(root).slice(-2)) {
+    const yearDir = path.join(root, year);
+    for (const month of directoriesAt(yearDir).slice(-2)) {
+      const monthDir = path.join(yearDir, month);
+      for (const day of directoriesAt(monthDir).slice(-3)) {
+        const dayDir = path.join(monthDir, day);
+        try {
+          for (const entry of fs.readdirSync(dayDir, { withFileTypes: true })) {
+            if (entry.isFile() && entry.name.endsWith(".jsonl")) {
+              result.push(path.join(dayDir, entry.name));
+            }
+          }
+        } catch {
+          // The directory can disappear while Codex rotates session files.
+        }
       }
     }
   }
   return result;
 }
 
-function consumeLines(text, shouldNotify) {
-  for (const line of text.split(/\r?\n/)) {
-    const start = line.match(TURN_START);
-    if (start) {
-      pendingConversations.add(start[1]);
-      continue;
+function parseSessionLine(line) {
+  if (!line.includes('"task_complete"')) {
+    return undefined;
+  }
+  try {
+    const event = JSON.parse(line);
+    if (event?.type === "event_msg" && event.payload?.type === "task_complete") {
+      return event.payload.turn_id || `${event.timestamp || ""}:${line.length}`;
     }
+  } catch {
+    // A partial JSON line is retained and retried on the next poll.
+  }
+  return undefined;
+}
 
-    const inactive = line.match(STREAM_INACTIVE);
-    if (!inactive || !pendingConversations.delete(inactive[1])) {
-      continue;
-    }
+function forwardCompletion(turnId) {
+  if (completedTurnIds.has(turnId)) {
+    return;
+  }
+  completedTurnIds.add(turnId);
+  notificationCount += 1;
+  lastNotificationAt = new Date().toISOString();
+  log(`task_complete detected turnId=${turnId}`);
+  void vscode.commands.executeCommand("codexNotifier.notifyComplete").then(
+    () => log(`forwarded completion turnId=${turnId}`),
+    error => log(`failed to forward completion turnId=${turnId}: ${error?.message || error}`)
+  );
+}
 
-    if (shouldNotify) {
-      notificationCount += 1;
-      lastNotificationAt = new Date().toISOString();
-      log(`completion detected for conversation ${inactive[1]}`);
-      void vscode.commands.executeCommand("codexNotifier.notifyComplete").then(
-        () => log("forwarded completion to local Codex Notifier"),
-        error => log(`failed to forward completion: ${error?.message || error}`)
-      );
+function consumeSessionText(file, text, shouldNotify) {
+  const combined = (remainders.get(file) || "") + text;
+  const lines = combined.split(/\r?\n/);
+  remainders.set(file, lines.pop() || "");
+  for (const line of lines) {
+    const turnId = parseSessionLine(line);
+    if (turnId && shouldNotify) {
+      forwardCompletion(turnId);
     }
   }
 }
 
-function initializeFile(file) {
+function initializeFile(file, shouldReadFromStart) {
   const stat = fs.statSync(file);
-  const start = Math.max(0, stat.size - INITIAL_READ_LIMIT);
-  const length = stat.size - start;
-  if (length > 0) {
-    const fd = fs.openSync(file, "r");
-    try {
-      const buffer = Buffer.alloc(length);
-      fs.readSync(fd, buffer, 0, length, start);
-      consumeLines(buffer.toString("utf8"), false);
-    } finally {
-      fs.closeSync(fd);
-    }
-  }
-  offsets.set(file, stat.size);
-  log(`tracking ${file}`);
-}
-
-function initializeFiles(files) {
-  const missing = files.filter(file => !offsets.has(file));
-  if (!missing.length) {
-    return;
-  }
-
-  if (offsets.size > 0) {
-    for (const file of missing) {
-      initializeFile(file);
-    }
-    return;
-  }
-
-  const initialLines = [];
-  for (const file of missing) {
-    const stat = fs.statSync(file);
-    const start = Math.max(0, stat.size - INITIAL_READ_LIMIT);
-    const length = stat.size - start;
-    if (length > 0) {
-      const fd = fs.openSync(file, "r");
-      try {
-        const buffer = Buffer.alloc(length);
-        fs.readSync(fd, buffer, 0, length, start);
-        initialLines.push(...buffer.toString("utf8").split(/\r?\n/));
-      } finally {
-        fs.closeSync(fd);
-      }
-    }
-    offsets.set(file, stat.size);
-    log(`tracking ${file}`);
-  }
-
-  // The same conversation can move between extension hosts. Rebuild its state
-  // from all log tails in timestamp order rather than directory order.
-  initialLines.sort();
-  consumeLines(initialLines.join("\n"), false);
+  offsets.set(file, shouldReadFromStart ? 0 : stat.size);
+  remainders.set(file, "");
+  log(`tracking ${file} offset=${shouldReadFromStart ? 0 : stat.size}`);
 }
 
 function pollFile(file) {
   try {
-    if (!offsets.has(file)) {
-      initializeFile(file);
-      return;
-    }
-
     const stat = fs.statSync(file);
-    let offset = offsets.get(file);
+    let offset = offsets.get(file) || 0;
     if (stat.size < offset) {
       offset = 0;
+      remainders.set(file, "");
     }
     if (stat.size === offset) {
       return;
@@ -174,26 +136,70 @@ function pollFile(file) {
       fs.closeSync(fd);
     }
     offsets.set(file, stat.size);
-    consumeLines(buffer.toString("utf8"), true);
+    consumeSessionText(file, buffer.toString("utf8"), true);
   } catch (error) {
     log(`poll failed for ${file}: ${error.message}`);
     offsets.delete(file);
+    remainders.delete(file);
   }
 }
 
+function acquireLeadership() {
+  try {
+    const fd = fs.openSync(LOCK_PATH, "wx");
+    fs.writeFileSync(fd, String(process.pid));
+    fs.closeSync(fd);
+    return true;
+  } catch (error) {
+    if (error.code !== "EEXIST") {
+      log(`leader lock failed: ${error.message}`);
+      return false;
+    }
+  }
+
+  try {
+    const ownerPid = Number(fs.readFileSync(LOCK_PATH, "utf8"));
+    if (Number.isFinite(ownerPid) && ownerPid > 0) {
+      process.kill(ownerPid, 0);
+      log(`follower mode; leader pid=${ownerPid}`);
+      return false;
+    }
+  } catch (error) {
+    if (error.code !== "ESRCH" && error.code !== "ENOENT") {
+      log(`leader check failed: ${error.message}`);
+      return false;
+    }
+  }
+
+  try {
+    fs.unlinkSync(LOCK_PATH);
+  } catch {
+    // Another instance may already be replacing a stale lock.
+  }
+  return acquireLeadership();
+}
+
 function poll() {
-  if (!vscode.workspace.getConfiguration("codexNotifierRemote").get("enabled", true)) {
+  if (!isLeader
+    || !vscode.workspace.getConfiguration("codexNotifierRemote").get("enabled", true)) {
     return;
   }
 
   const now = Date.now();
   if (now - lastDiscoveryAt >= DISCOVERY_INTERVAL_MS) {
     lastDiscoveryAt = now;
-    try {
-      initializeFiles(discoverLogFiles());
-    } catch (error) {
-      log(`initialization failed: ${error.message}`);
+    for (const file of discoverSessionFiles()) {
+      if (!offsets.has(file)) {
+        try {
+          // Files first seen after activation are new Codex sessions, so read
+          // them from the beginning in case a very short task already ended.
+          initializeFile(file, hasCompletedInitialDiscovery);
+        } catch (error) {
+          log(`initialization failed for ${file}: ${error.message}`);
+        }
+      }
     }
+    hasCompletedInitialDiscovery = true;
   }
   for (const file of offsets.keys()) {
     pollFile(file);
@@ -203,24 +209,40 @@ function poll() {
 function diagnostics() {
   return {
     remoteName: vscode.env.remoteName || "none",
-    logRoot: getLogRoot(),
-    trackedLogFiles: [...offsets.keys()],
-    pendingConversations: [...pendingConversations],
+    sessionsRoot: getSessionsRoot(),
+    isLeader,
+    trackedSessionFiles: [...offsets.keys()],
     notificationCount,
     lastNotificationAt
   };
 }
 
 function activate(context) {
-  log(`activated remoteName=${vscode.env.remoteName || "none"}`);
-  poll();
-  timer = setInterval(poll, POLL_INTERVAL_MS);
+  log(`activated remoteName=${vscode.env.remoteName || "none"} pid=${process.pid}`);
+  isLeader = acquireLeadership();
+  if (isLeader) {
+    log("leader mode");
+    poll();
+    timer = setInterval(poll, POLL_INTERVAL_MS);
+  }
   context.subscriptions.push(
-    { dispose: () => clearInterval(timer) },
-    vscode.commands.registerCommand("codexNotifierRemote.showDiagnostics", () => {
+    {
+      dispose: () => {
+        clearInterval(timer);
+        if (isLeader) {
+          try {
+            if (Number(fs.readFileSync(LOCK_PATH, "utf8")) === process.pid) {
+              fs.unlinkSync(LOCK_PATH);
+            }
+          } catch {
+            // The lock may already be gone during shutdown.
+          }
+        }
+      }
+    },
+    vscode.commands.registerCommand("codexNotifierSessionWatcher.showDiagnostics", () => {
       const value = diagnostics();
       log(`diagnostics ${JSON.stringify(value)}`);
-      getOutput().show(true);
       return value;
     })
   );
@@ -236,5 +258,5 @@ function deactivate() {
 module.exports = {
   activate,
   deactivate,
-  _test: { consumeLines, diagnostics }
+  _test: { consumeSessionText, parseSessionLine, diagnostics }
 };

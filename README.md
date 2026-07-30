@@ -95,8 +95,8 @@ The default relative trigger path (`.codex-notify`) is watched through VS Code's
 
 If the local UI extension cannot read the VS Code Server log directory, install
 the optional [`remote-companion`](./remote-companion/) VSIX on the SSH host. It
-watches `Codex.log` remotely and forwards only confirmed turn completions to the
-local notifier command.
+watches Codex session JSONL files remotely and forwards authoritative
+`task_complete` events to the local notifier command.
 
 ## Recommended Settings
 
