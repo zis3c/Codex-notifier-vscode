@@ -566,34 +566,14 @@ function parseSessionMetadata(text) {
   }
 }
 
-function getRelevantWorkspacePaths(sourceKind) {
-  const expectedScheme = sourceKind === "remote" ? "vscode-remote" : "file";
-  return (vscode.workspace.workspaceFolders || [])
-    .map((folder) => folder.uri)
-    .filter((uri) => uri.scheme === expectedScheme)
-    .map((uri) => path.posix.normalize(uri.path).replace(/\/$/, ""));
-}
-
-function classifySessionMetadata(metadata, sourceKind) {
+function classifySessionMetadata(metadata) {
   if (metadata?.originator !== "codex_vscode") {
     return { eligible: false, reason: "non-vscode-originator" };
   }
   if (metadata?.source !== "vscode" || metadata?.thread_source === "subagent") {
     return { eligible: false, reason: "subagent-or-internal-session" };
   }
-
-  const workspacePaths = getRelevantWorkspacePaths(sourceKind);
-  if (workspacePaths.length === 0) {
-    return { eligible: true, reason: "top-level-vscode-session" };
-  }
-
-  const cwd = path.posix.normalize(String(metadata.cwd || "")).replace(/\/$/, "");
-  const inWorkspace = workspacePaths.some(
-    (workspacePath) => cwd === workspacePath || cwd.startsWith(`${workspacePath}/`)
-  );
-  return inWorkspace
-    ? { eligible: true, reason: "top-level-session-in-workspace" }
-    : { eligible: false, reason: "different-workspace" };
+  return { eligible: true, reason: "top-level-vscode-session" };
 }
 
 async function getSessionInfo(source, size) {
@@ -604,7 +584,7 @@ async function getSessionInfo(source, size) {
   const metadata = parseSessionMetadata(text);
   if (!metadata) return undefined;
 
-  const classification = classifySessionMetadata(metadata, source.kind);
+  const classification = classifySessionMetadata(metadata);
   const info = {
     ...classification,
     cwd: metadata.cwd || "",
