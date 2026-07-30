@@ -1,0 +1,47 @@
+{
+  "name": "codex-notifier-remote-companion",
+  "displayName": "Codex Notifier Remote Companion",
+  "description": "Watches Codex logs in a Remote SSH extension host and forwards completion events to the local Codex Notifier.",
+  "version": "0.1.1",
+  "publisher": "ae-mc",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "extensionKind": [
+    "workspace"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codexNotifierRemote.showDiagnostics",
+        "title": "Codex Notifier Remote: Show Diagnostics"
+      }
+    ],
+    "configuration": {
+      "title": "Codex Notifier Remote Companion",
+      "properties": {
+        "codexNotifierRemote.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Watch remote Codex logs and forward task completion notifications to the local notifier."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "node test.js"
+  },
+  "files": [
+    "extension.js",
+    "package.json",
+    "README.md"
+  ],
+  "license": "MIT"
+}
