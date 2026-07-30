@@ -2,6 +2,10 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.9] - 2026-07-30
+
+- Added detailed log-source diagnostics for troubleshooting Remote SSH auto-detection.
+
 ## [0.1.8] - 2026-07-30
 
 - Added Remote SSH workspace support by running notifications in the local UI extension host.

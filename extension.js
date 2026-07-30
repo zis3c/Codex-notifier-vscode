@@ -2,6 +2,7 @@
 const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
+const extensionVersion = require("./package.json").version;
 
 /**
  * Codex Notifier extension runtime state.
@@ -550,6 +551,28 @@ async function findAllCodexLogFiles() {
   return recent;
 }
 
+async function getDetailedDiagnosticsSummary() {
+  const summary = getDiagnosticsSummary();
+  try {
+    codexLogFilesCacheAt = 0;
+    const sources = await findAllCodexLogFiles();
+    return {
+      ...summary,
+      extensionVersion,
+      remoteLogRoots: getRemoteLogRoots().map((uri) => uri.toString()),
+      detectedLogSources: sources.map((source) => source.key)
+    };
+  } catch (error) {
+    return {
+      ...summary,
+      extensionVersion,
+      remoteLogRoots: getRemoteLogRoots().map((uri) => uri.toString()),
+      detectedLogSources: [],
+      logDiscoveryError: String(error?.stack || error)
+    };
+  }
+}
+
 async function getCodexLogStat(source) {
   if (source.kind === "remote") {
     const stat = await vscode.workspace.fs.stat(source.uri);
@@ -1055,7 +1078,7 @@ function activate(context) {
 
   context.subscriptions.push(
     vscode.commands.registerCommand("codexNotifier.showDiagnostics", async () => {
-      const summary = getDiagnosticsSummary();
+      const summary = await getDetailedDiagnosticsSummary();
       const out = getOutput();
       out.appendLine("===== Diagnostics =====");
       Object.entries(summary).forEach(([k, v]) => out.appendLine(`${k}: ${v}`));
@@ -1063,6 +1086,13 @@ function activate(context) {
       vscode.window.showInformationMessage(
         `Codex Notifier: pending=${summary.pending} logs=${summary.trackedLogFiles} lastNotify=${summary.lastNotifyAt}`
       );
+      return summary;
+    })
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand("codexNotifier.getDiagnostics", async () => {
+      return getDetailedDiagnosticsSummary();
     })
   );
 
