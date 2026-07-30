@@ -89,7 +89,7 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 
 ### Remote SSH Workspaces
 
-Codex Notifier runs in VS Code's local UI extension host, so sounds, status messages, and system notifications are produced on your local computer even when the workspace is opened through Remote SSH.
+Codex Notifier runs in VS Code's local UI extension host, so sounds, status messages, and system notifications are produced on your local computer even when the workspace is opened through Remote SSH. It discovers the Codex extension logs on the SSH host through VS Code's remote file-system API and watches explicit per-conversation completion signals.
 
 The default relative trigger path (`.codex-notify`) is watched through VS Code's remote file-system API. In a multi-root workspace, one trigger is watched in each root. Absolute `watchFilePath` values still refer to the local UI machine; use a relative path to watch a file on the SSH host.
 

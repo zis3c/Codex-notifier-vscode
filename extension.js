@@ -18,6 +18,10 @@ let output = null;
 let codexLogPoller = null;
 let codexLogIdleTimer = null;
 let codexLogOffsets = new Map();
+let codexLogFilesCache = [];
+let codexLogFilesCacheAt = 0;
+let codexLogPollBusy = false;
+let codexWorkingConversations = new Set();
 let codexLogPending = false;
 let codexLogFirstActivityAt = 0;
 let codexLogLastActivityAt = 0;
@@ -339,6 +343,10 @@ function stopCodexLogWatcher() {
     codexLogIdleTimer = null;
   }
   codexLogOffsets.clear();
+  codexLogFilesCache = [];
+  codexLogFilesCacheAt = 0;
+  codexLogPollBusy = false;
+  codexWorkingConversations.clear();
   codexLogPending = false;
   codexLogFirstActivityAt = 0;
   codexLogLastActivityAt = 0;
@@ -375,35 +383,256 @@ function getCodexLogRoots() {
   return roots;
 }
 
-// Find recent Codex.log files across VS Code log sessions/windows.
-function findAllCodexLogFiles() {
+function findLocalCodexLogFiles() {
   const candidates = [];
   const roots = getCodexLogRoots();
+
+  const scan = (dir, depth) => {
+    if (depth > 5) return;
+    let entries;
+    try {
+      entries = fs.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const child = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        scan(child, depth + 1);
+      } else if (entry.isFile() && entry.name === "Codex.log" && path.basename(dir) === "openai.chatgpt") {
+        try {
+          const stat = fs.statSync(child);
+          candidates.push({
+            key: `local:${child}`,
+            kind: "local",
+            file: child,
+            mtimeMs: stat.mtimeMs
+          });
+        } catch {
+          // noop
+        }
+      }
+    }
+  };
+
   for (const logsRoot of roots) {
     if (!fs.existsSync(logsRoot)) continue;
     try {
-      const sessions = fs.readdirSync(logsRoot, { withFileTypes: true }).filter((d) => d.isDirectory());
+      const sessions = fs.readdirSync(logsRoot, { withFileTypes: true })
+        .filter((d) => d.isDirectory())
+        .sort((a, b) => b.name.localeCompare(a.name))
+        .slice(0, 5);
       for (const session of sessions) {
-        const sessionPath = path.join(logsRoot, session.name);
-        const windows = fs.readdirSync(sessionPath, { withFileTypes: true }).filter((d) => d.isDirectory() && d.name.startsWith("window"));
-        for (const win of windows) {
-          const codexLog = path.join(sessionPath, win.name, "exthost", "openai.chatgpt", "Codex.log");
-          if (!fs.existsSync(codexLog)) continue;
-          const stat = fs.statSync(codexLog);
-          candidates.push({ file: codexLog, mtimeMs: stat.mtimeMs });
-        }
+        scan(path.join(logsRoot, session.name), 0);
       }
     } catch {
       // noop
     }
   }
 
-  // Keep only recently-touched files to avoid stale sessions.
+  return candidates;
+}
+
+function inferRemoteHomePath(uriPath) {
+  const parts = String(uriPath || "").split("/").filter(Boolean);
+  if (parts.length === 0) return null;
+  if (parts[0] === "root") return "/root";
+  if ((parts[0] === "home" || parts[0] === "Users") && parts[1]) {
+    return `/${parts[0]}/${parts[1]}`;
+  }
+  return null;
+}
+
+function getRemoteLogRoots() {
+  const sourceUris = [];
+  for (const folder of vscode.workspace.workspaceFolders || []) {
+    sourceUris.push(folder.uri);
+  }
+  if (vscode.workspace.workspaceFile) {
+    sourceUris.push(vscode.workspace.workspaceFile);
+  }
+  for (const doc of vscode.workspace.textDocuments || []) {
+    sourceUris.push(doc.uri);
+  }
+  for (const editor of vscode.window.visibleTextEditors || []) {
+    sourceUris.push(editor.document.uri);
+  }
+
+  const roots = [];
+  const seen = new Set();
+  for (const uri of sourceUris) {
+    if (!uri || uri.scheme !== "vscode-remote") continue;
+    const homePath = inferRemoteHomePath(uri.path);
+    if (!homePath) continue;
+    for (const serverDir of [".vscode-server", ".vscode-server-insiders"]) {
+      const root = uri.with({
+        path: `${homePath}/${serverDir}/data/logs`,
+        query: "",
+        fragment: ""
+      });
+      const key = root.toString();
+      if (seen.has(key)) continue;
+      seen.add(key);
+      roots.push(root);
+    }
+  }
+  return roots;
+}
+
+async function findRemoteCodexLogFiles() {
+  const candidates = [];
+
+  const scan = async (dir, depth) => {
+    if (depth > 5) return;
+    let entries;
+    try {
+      entries = await vscode.workspace.fs.readDirectory(dir);
+    } catch {
+      return;
+    }
+
+    for (const [name, type] of entries) {
+      const child = vscode.Uri.joinPath(dir, name);
+      if (type === vscode.FileType.Directory) {
+        await scan(child, depth + 1);
+      } else if (type === vscode.FileType.File && name === "Codex.log" && path.posix.basename(dir.path) === "openai.chatgpt") {
+        try {
+          const stat = await vscode.workspace.fs.stat(child);
+          candidates.push({
+            key: `remote:${child.toString()}`,
+            kind: "remote",
+            uri: child,
+            mtimeMs: stat.mtime
+          });
+        } catch {
+          // noop
+        }
+      }
+    }
+  };
+
+  for (const logsRoot of getRemoteLogRoots()) {
+    let sessions;
+    try {
+      sessions = (await vscode.workspace.fs.readDirectory(logsRoot))
+        .filter(([, type]) => type === vscode.FileType.Directory)
+        .sort(([a], [b]) => b.localeCompare(a))
+        .slice(0, 5);
+    } catch {
+      continue;
+    }
+    for (const [session] of sessions) {
+      await scan(vscode.Uri.joinPath(logsRoot, session), 0);
+    }
+  }
+
+  return candidates;
+}
+
+// Find recent Codex.log files across local and Remote SSH extension hosts.
+async function findAllCodexLogFiles() {
   const now = Date.now();
+  if (now - codexLogFilesCacheAt < 5000) {
+    return codexLogFilesCache;
+  }
+
+  const candidates = [
+    ...findLocalCodexLogFiles(),
+    ...await findRemoteCodexLogFiles()
+  ];
+
+  // Keep only recently-touched files to avoid stale sessions.
   const recent = candidates.filter((c) => now - c.mtimeMs <= 1000 * 60 * 120); // 2h
   recent.sort((a, b) => b.mtimeMs - a.mtimeMs);
-  // Track all recent windows so the active Codex session is not missed.
-  return recent.map((c) => c.file);
+  codexLogFilesCache = recent;
+  codexLogFilesCacheAt = now;
+  return recent;
+}
+
+async function getCodexLogStat(source) {
+  if (source.kind === "remote") {
+    const stat = await vscode.workspace.fs.stat(source.uri);
+    return { size: stat.size };
+  }
+  const stat = fs.statSync(source.file);
+  return { size: stat.size };
+}
+
+async function readCodexLogChunk(source, offset, size) {
+  if (source.kind === "remote") {
+    const bytes = await vscode.workspace.fs.readFile(source.uri);
+    return Buffer.from(bytes).subarray(offset, size).toString("utf8");
+  }
+
+  const fd = fs.openSync(source.file, "r");
+  try {
+    const len = size - offset;
+    const buffer = Buffer.alloc(len);
+    fs.readSync(fd, buffer, 0, len, offset);
+    return buffer.toString("utf8");
+  } finally {
+    fs.closeSync(fd);
+  }
+}
+
+function processCodexLogChunk(chunk, sourceKey) {
+  const now = Date.now();
+  let startCount = 0;
+  let completionCount = 0;
+  let legacyActivityCount = 0;
+
+  for (const line of chunk.split(/\r?\n/)) {
+    const turnStart = line.match(/Reasoning summary turn-start.*\bconversationId=([^\s]+)/);
+    if (turnStart) {
+      codexWorkingConversations.add(turnStart[1]);
+      startCount += 1;
+      codexLogPending = true;
+      codexLogSawWorkSignal = true;
+      if (!codexLogFirstActivityAt) codexLogFirstActivityAt = now;
+      codexLogLastActivityAt = now;
+      codexLogActivityCount += 1;
+    }
+
+    const inactive = line.match(/thread_stream_view_activity_changed active=false.*\bconversationId=([^\s]+)/);
+    if (inactive && codexWorkingConversations.has(inactive[1])) {
+      codexWorkingConversations.delete(inactive[1]);
+      completionCount += 1;
+      codexLogPending = true;
+      codexLogSawWorkSignal = true;
+      codexLogLastActivityAt = now;
+      codexLogActivityCount += 1;
+      codexLogMaybeDoneAt = now;
+    }
+
+    if (/thread-stream-state-changed|thread-read-state-changed/.test(line)) {
+      legacyActivityCount += 1;
+    }
+  }
+
+  if (legacyActivityCount > 0) {
+    const burstStarted = !codexLogPending || (now - codexLogLastActivityAt > 30000);
+    if (burstStarted) {
+      codexLogFirstActivityAt = now;
+      codexLogActivityCount = 0;
+      codexLogSawWorkSignal = false;
+      codexLogBurstNotified = false;
+      codexLogMaybeDoneAt = 0;
+      codexLogBurstStartLogged = false;
+    }
+    codexLogPending = true;
+    codexLogLastActivityAt = now;
+    codexLogActivityCount += legacyActivityCount;
+    codexLogSawWorkSignal = true;
+  }
+
+  if ((startCount > 0 || legacyActivityCount > 0) && !codexLogBurstStartLogged) {
+    codexLogBurstStartLogged = true;
+    logDebug(`codex work started source=${sourceKey} starts=${startCount} legacy=${legacyActivityCount}`);
+  }
+  if (completionCount > 0) {
+    logDebug(`codex completion signal source=${sourceKey} completions=${completionCount}`);
+  }
 }
 
 function isLikelyCodexDocument(doc) {
@@ -443,81 +672,44 @@ function startCodexLogWatcher() {
   const minBurstMs = Number.isFinite(minBurstMsRaw) ? Math.max(0, minBurstMsRaw) : 0;
 
   codexLogPoller = setInterval(async () => {
-    const files = findAllCodexLogFiles();
-    if (!files || files.length === 0) return;
+    if (codexLogPollBusy) return;
+    codexLogPollBusy = true;
+    try {
+      const files = await findAllCodexLogFiles();
+      if (!files || files.length === 0) return;
 
-    const live = new Set(files);
-    for (const known of Array.from(codexLogOffsets.keys())) {
-      if (!live.has(known)) {
-        codexLogOffsets.delete(known);
+      const live = new Set(files.map((source) => source.key));
+      for (const known of Array.from(codexLogOffsets.keys())) {
+        if (!live.has(known)) {
+          codexLogOffsets.delete(known);
+        }
       }
-    }
 
-    for (const file of files) {
-      try {
-        let offset = codexLogOffsets.get(file);
-        const stat = fs.statSync(file);
-        if (offset == null) {
-          // Tail mode: begin at end; only process new lines from now on.
-          codexLogOffsets.set(file, stat.size);
-          logDebug(`tail start file=${file} offset=${stat.size}`);
-          continue;
-        }
-        if (stat.size < offset) offset = 0;
-        if (stat.size === offset) {
-          codexLogOffsets.set(file, offset);
-          continue;
-        }
-
-        const fd = fs.openSync(file, "r");
-        const len = stat.size - offset;
-        const buffer = Buffer.alloc(len);
-        fs.readSync(fd, buffer, 0, len, offset);
-        fs.closeSync(fd);
-        codexLogOffsets.set(file, stat.size);
-
-        const chunk = buffer.toString("utf8");
-        const now = Date.now();
-        const streamHits = (chunk.match(/thread-stream-state-changed/g) || []).length;
-        const viewActiveTrueHits = (chunk.match(/thread_stream_view_activity_changed active=true/g) || []).length;
-        const viewActiveFalseHits = (chunk.match(/thread_stream_view_activity_changed active=false/g) || []).length;
-        const readHits = (chunk.match(/thread-read-state-changed/g) || []).length;
-        const summaryHits = (chunk.match(/Reasoning summary item completed/g) || []).length;
-        const turnStartHits = (chunk.match(/Reasoning summary turn-start/g) || []).length;
-        const clientStatusHits = (chunk.match(/client-status-changed/g) || []).length;
-        const hitCount = streamHits + readHits;
-        if (hitCount > 0) {
-          const burstStarted = !codexLogPending || (now - codexLogLastActivityAt > idleMs);
-          if (burstStarted) {
-            codexLogFirstActivityAt = now;
-            codexLogActivityCount = 0;
-            codexLogSawWorkSignal = false;
-            codexLogBurstNotified = false;
-            codexLogMaybeDoneAt = 0;
-            codexLogBurstStartLogged = false;
+      for (const source of files) {
+        try {
+          let offset = codexLogOffsets.get(source.key);
+          const stat = await getCodexLogStat(source);
+          if (offset == null) {
+            // Tail mode: begin at end; only process new lines from now on.
+            codexLogOffsets.set(source.key, stat.size);
+            logDebug(`tail start source=${source.key} offset=${stat.size}`);
+            continue;
           }
-          codexLogPending = true;
-          codexLogLastActivityAt = now;
-          codexLogActivityCount += hitCount;
-          codexLogSawWorkSignal = true;
-          if (burstStarted && !codexLogBurstStartLogged) {
-            codexLogBurstStartLogged = true;
-            logDebug(`codex burst started file=${file} stream=${streamHits} read=${readHits} total=${codexLogActivityCount}`);
+          if (stat.size < offset) offset = 0;
+          if (stat.size === offset) {
+            codexLogOffsets.set(source.key, offset);
+            continue;
           }
-        }
 
-        // Only the explicit inactive view state is treated as the end marker.
-        // Reasoning summary items still happen during thinking, so they are
-        // tracked for diagnostics only.
-        if (codexLogPending && !codexLogBurstNotified && codexLogSawWorkSignal && viewActiveFalseHits > 0) {
-          if (!codexLogMaybeDoneAt) {
-            logDebug(`end-state signal seen; waiting for quiet grace viewOff=${viewActiveFalseHits}`);
-          }
-          codexLogMaybeDoneAt = now;
+          const chunk = await readCodexLogChunk(source, offset, stat.size);
+          codexLogOffsets.set(source.key, stat.size);
+          processCodexLogChunk(chunk, source.key);
+        } catch (error) {
+          logDebug(`log read failed source=${source.key} error=${String(error)}`);
         }
-      } catch {
-        // noop
       }
+    } finally {
+      codexLogPollBusy = false;
     }
   }, pollMs);
 
@@ -525,6 +717,9 @@ function startCodexLogWatcher() {
     const now = Date.now();
     if (!codexLogPending) return;
     if (now - codexLogLastActivityAt < idleMs) return;
+    // Never infer completion from silence alone. Current Codex builds emit
+    // an explicit active=false marker for the conversation when a turn ends.
+    if (!codexLogMaybeDoneAt) return;
     if (!codexLogSawWorkSignal) {
       logDebug(`reset quiet logs without work signal count=${codexLogActivityCount}`);
       resetCodexLogBurstState();
@@ -541,10 +736,6 @@ function startCodexLogWatcher() {
       return;
     }
     const graceMs = 350;
-    if (!codexLogMaybeDoneAt) {
-      codexLogMaybeDoneAt = now;
-      return;
-    }
     if (now - codexLogMaybeDoneAt < graceMs) return;
 
     const notCoolingDown = now - lastCodexNotifyAt >= cooldownMs;
