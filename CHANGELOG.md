@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.1] - 2026-07-30
+
+- Filtered out guardian, subagent, and other internal Codex sessions that emit
+  their own intermediate `task_complete` events.
+- Restricted automatic notifications to top-level VS Code sessions belonging to
+  the current workspace.
+- Added diagnostics for eligible and ignored session sources.
+
 ## [0.2.0] - 2026-07-30
 
 - Consolidated Remote SSH detection and local sound playback into one UI extension.

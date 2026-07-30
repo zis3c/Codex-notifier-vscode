@@ -24,6 +24,7 @@ let codexLogFilesCacheAt = 0;
 let codexLogPollBusy = false;
 let codexSessionInitialDiscoveryDone = false;
 let codexCompletedTurnIds = new Set();
+let codexSessionInfo = new Map();
 let statusItem = null;
 let statusTimer = null;
 
@@ -45,6 +46,7 @@ function getDiagnosticsSummary() {
     codexChatCooldownMs: cfg.get("codexChatCooldownMs", 5000),
     volume: cfg.get("volume", 1),
     trackedSessionFiles: codexLogOffsets.size,
+    ignoredSessionFiles: [...codexSessionInfo.values()].filter((info) => !info.eligible).length,
     completedTurnIds: codexCompletedTurnIds.size,
     lastNotifyAt: fmtTs(lastCodexNotifyAt)
   };
@@ -332,6 +334,7 @@ function stopCodexLogWatcher() {
   codexLogPollBusy = false;
   codexSessionInitialDiscoveryDone = false;
   codexCompletedTurnIds.clear();
+  codexSessionInfo.clear();
 }
 
 function inferRemoteHomePath(uriPath) {
@@ -502,7 +505,16 @@ async function getDetailedDiagnosticsSummary() {
       architecture: "single-ui-extension",
       remoteSessionRoots: getRemoteSessionRoots().map((uri) => uri.toString()),
       localSessionRoots: getLocalSessionRoots(),
-      detectedSessionSources: sources.map((source) => source.key)
+      detectedSessionSources: sources.map((source) => source.key),
+      eligibleSessionSources: sources
+        .filter((source) => codexSessionInfo.get(source.key)?.eligible)
+        .map((source) => source.key),
+      ignoredSessionSources: sources
+        .filter((source) => codexSessionInfo.get(source.key)?.eligible === false)
+        .map((source) => ({
+          source: source.key,
+          reason: codexSessionInfo.get(source.key).reason
+        }))
     };
   } catch (error) {
     return {
@@ -541,6 +553,69 @@ async function readCodexSessionChunk(source, offset, size) {
   } finally {
     fs.closeSync(fd);
   }
+}
+
+function parseSessionMetadata(text) {
+  const newline = text.indexOf("\n");
+  const firstLine = newline >= 0 ? text.slice(0, newline) : text;
+  try {
+    const event = JSON.parse(firstLine);
+    return event?.type === "session_meta" ? event.payload : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function getRelevantWorkspacePaths(sourceKind) {
+  const expectedScheme = sourceKind === "remote" ? "vscode-remote" : "file";
+  return (vscode.workspace.workspaceFolders || [])
+    .map((folder) => folder.uri)
+    .filter((uri) => uri.scheme === expectedScheme)
+    .map((uri) => path.posix.normalize(uri.path).replace(/\/$/, ""));
+}
+
+function classifySessionMetadata(metadata, sourceKind) {
+  if (metadata?.originator !== "codex_vscode") {
+    return { eligible: false, reason: "non-vscode-originator" };
+  }
+  if (metadata?.source !== "vscode" || metadata?.thread_source === "subagent") {
+    return { eligible: false, reason: "subagent-or-internal-session" };
+  }
+
+  const workspacePaths = getRelevantWorkspacePaths(sourceKind);
+  if (workspacePaths.length === 0) {
+    return { eligible: true, reason: "top-level-vscode-session" };
+  }
+
+  const cwd = path.posix.normalize(String(metadata.cwd || "")).replace(/\/$/, "");
+  const inWorkspace = workspacePaths.some(
+    (workspacePath) => cwd === workspacePath || cwd.startsWith(`${workspacePath}/`)
+  );
+  return inWorkspace
+    ? { eligible: true, reason: "top-level-session-in-workspace" }
+    : { eligible: false, reason: "different-workspace" };
+}
+
+async function getSessionInfo(source, size) {
+  const cached = codexSessionInfo.get(source.key);
+  if (cached) return cached;
+
+  const text = await readCodexSessionChunk(source, 0, size);
+  const metadata = parseSessionMetadata(text);
+  if (!metadata) return undefined;
+
+  const classification = classifySessionMetadata(metadata, source.kind);
+  const info = {
+    ...classification,
+    cwd: metadata.cwd || "",
+    source: typeof metadata.source === "string" ? metadata.source : "subagent",
+    threadSource: metadata.thread_source || ""
+  };
+  codexSessionInfo.set(source.key, info);
+  logDebug(
+    `session classified source=${source.key} eligible=${info.eligible} reason=${info.reason} cwd=${info.cwd}`
+  );
+  return info;
 }
 
 function parseTaskCompleteLine(line) {
@@ -607,12 +682,16 @@ function startCodexLogWatcher() {
         if (!live.has(known)) {
           codexLogOffsets.delete(known);
           codexLogRemainders.delete(known);
+          codexSessionInfo.delete(known);
         }
       }
 
       for (const source of files) {
         try {
           const stat = await getCodexSessionStat(source);
+          const sessionInfo = await getSessionInfo(source, stat.size);
+          if (!sessionInfo?.eligible) continue;
+
           let offset = codexLogOffsets.get(source.key);
           if (offset == null) {
             // Ignore history on the initial scan. A session first discovered
