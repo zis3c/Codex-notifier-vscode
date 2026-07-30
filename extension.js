@@ -2,6 +2,10 @@ const vscode = require("vscode");
 const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
+const {
+  isInheritedForkCompletion,
+  parseTaskCompleteLine
+} = require("./session-events");
 const extensionVersion = require("./package.json").version;
 
 /**
@@ -589,7 +593,9 @@ async function getSessionInfo(source, size) {
     ...classification,
     cwd: metadata.cwd || "",
     source: typeof metadata.source === "string" ? metadata.source : "subagent",
-    threadSource: metadata.thread_source || ""
+    threadSource: metadata.thread_source || "",
+    forkedFromId: metadata.forked_from_id || "",
+    createdAtMs: Date.parse(metadata.timestamp || "")
   };
   codexSessionInfo.set(source.key, info);
   logDebug(
@@ -598,27 +604,21 @@ async function getSessionInfo(source, size) {
   return info;
 }
 
-function parseTaskCompleteLine(line) {
-  if (!line.includes('"task_complete"')) return undefined;
-  try {
-    const event = JSON.parse(line);
-    if (event?.type === "event_msg" && event.payload?.type === "task_complete") {
-      return event.payload.turn_id || `${event.timestamp || "unknown"}:${line.length}`;
-    }
-  } catch {
-    // Incomplete lines are retained and retried after the next append.
-  }
-  return undefined;
-}
-
-async function processCodexSessionChunk(chunk, sourceKey) {
+async function processCodexSessionChunk(chunk, sourceKey, sessionInfo, initialForkRead = false) {
   const combined = (codexLogRemainders.get(sourceKey) || "") + chunk;
   const lines = combined.split(/\r?\n/);
   codexLogRemainders.set(sourceKey, lines.pop() || "");
 
   for (const line of lines) {
-    const turnId = parseTaskCompleteLine(line);
+    const completion = parseTaskCompleteLine(line);
+    const turnId = completion?.turnId;
     if (!turnId || codexCompletedTurnIds.has(turnId)) continue;
+    if (isInheritedForkCompletion(completion, sessionInfo, initialForkRead)) {
+      logDebug(
+        `inherited task_complete ignored source=${sourceKey} turnId=${turnId} forkedFrom=${sessionInfo.forkedFromId}`
+      );
+      continue;
+    }
     codexCompletedTurnIds.add(turnId);
     lastCodexNotifyAt = Date.now();
     logDebug(`task_complete source=${sourceKey} turnId=${turnId}`);
@@ -673,10 +673,12 @@ function startCodexLogWatcher() {
           if (!sessionInfo?.eligible) continue;
 
           let offset = codexLogOffsets.get(source.key);
+          let initialForkRead = false;
           if (offset == null) {
             // Ignore history on the initial scan. A session first discovered
             // later is new, so read it from byte zero to catch very short turns.
             offset = codexSessionInitialDiscoveryDone ? 0 : stat.size;
+            initialForkRead = codexSessionInitialDiscoveryDone && offset === 0;
             codexLogOffsets.set(source.key, offset);
             codexLogRemainders.set(source.key, "");
             logDebug(`session tail start source=${source.key} offset=${offset}`);
@@ -689,7 +691,7 @@ function startCodexLogWatcher() {
 
           const chunk = await readCodexSessionChunk(source, offset, stat.size);
           codexLogOffsets.set(source.key, stat.size);
-          await processCodexSessionChunk(chunk, source.key);
+          await processCodexSessionChunk(chunk, source.key, sessionInfo, initialForkRead);
         } catch (error) {
           logDebug(`session read failed source=${source.key} error=${String(error)}`);
         }

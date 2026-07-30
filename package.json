@@ -2,7 +2,7 @@
   "name": "codex-notifier",
   "displayName": "Codex Notifier",
   "description": "Notify with sound when work is complete.",
-  "version": "0.2.2",
+  "version": "0.2.3",
   "icon": "logo.png",
   "publisher": "zis3c",
   "engines": {
@@ -168,7 +168,8 @@
   "scripts": {
     "check": "node ./scripts/validate-release.js",
     "lint": "npm run check",
-    "release:check": "npm run check"
+    "release:check": "npm run check && npm test",
+    "test": "node ./scripts/test-session-events.js"
   },
   "license": "MIT",
   "repository": {

@@ -95,6 +95,8 @@ Remote SSH window it reads `~/.codex/sessions/**/*.jsonl` through VS Code's
 remote file-system API and reacts to authoritative `task_complete` events.
 Guardian and subagent sessions are ignored, because their intermediate
 `task_complete` events do not mean the user's top-level task has finished.
+When a conversation is forked into a new task, inherited completion history is
+also ignored; only work completed after the fork produces a notification.
 
 The default relative trigger path (`.codex-notify`) is watched through VS Code's remote file-system API. In a multi-root workspace, one trigger is watched in each root. Absolute `watchFilePath` values still refer to the local UI machine; use a relative path to watch a file on the SSH host.
 

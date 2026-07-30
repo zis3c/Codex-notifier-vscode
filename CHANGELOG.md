@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.3] - 2026-07-31
+
+- Ignored inherited `task_complete` history when Codex forks an existing
+  conversation into a new task, while keeping new completions eligible.
+
 ## [0.2.2] - 2026-07-31
 
 - Kept filtering guardian and subagent completions while allowing a resumed
