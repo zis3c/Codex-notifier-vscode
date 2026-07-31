@@ -1,5 +1,6 @@
 const vscode = require("vscode");
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const { execFile } = require("child_process");
 const {
@@ -342,11 +343,19 @@ function stopCodexLogWatcher() {
 }
 
 function inferRemoteHomePath(uriPath) {
-  const parts = String(uriPath || "").split("/").filter(Boolean);
+  const parts = String(uriPath || "").replace(/^\/+/, "").split("/").filter(Boolean);
   if (parts.length === 0) return null;
-  if (parts[0] === "root") return "/root";
-  if ((parts[0] === "home" || parts[0] === "Users") && parts[1]) {
+  if (parts[0].toLowerCase() === "root") return "/root";
+  if ((parts[0].toLowerCase() === "home" || parts[0].toLowerCase() === "users") && parts[1]) {
     return `/${parts[0]}/${parts[1]}`;
+  }
+  if (/^[a-zA-Z]:$/.test(parts[0]) && parts[1]) {
+    if (parts[1].toLowerCase() === "users" && parts[2]) {
+      return `/${parts[0]}/${parts[1]}/${parts[2]}`;
+    }
+    if (parts[1].toLowerCase() === "home" && parts[2]) {
+      return `/${parts[0]}/${parts[1]}/${parts[2]}`;
+    }
   }
   return null;
 }
@@ -382,7 +391,8 @@ function getRemoteSessionRoots() {
 function getLocalSessionRoots() {
   const configuredPath = String(getConfig().get("localSessionsPath", "") || "").trim();
   if (configuredPath) return [configuredPath];
-  return process.env.HOME ? [path.join(process.env.HOME, ".codex", "sessions")] : [];
+  const homeDir = os.homedir();
+  return homeDir ? [path.join(homeDir, ".codex", "sessions")] : [];
 }
 
 function localDirectoriesAt(root) {

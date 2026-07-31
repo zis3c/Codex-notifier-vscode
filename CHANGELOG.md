@@ -2,46 +2,18 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.2.4] - 2026-07-31
+## [0.1.8] - 2026-07-31
 
-- Prevented old `task_complete` history from replaying when an existing chat
-  is resumed or remote session files become visible after watcher startup.
-
-## [0.2.3] - 2026-07-31
-
-- Ignored inherited `task_complete` history when Codex forks an existing
-  conversation into a new task, while keeping new completions eligible.
-
-## [0.2.2] - 2026-07-31
-
-- Kept filtering guardian and subagent completions while allowing a resumed
-  top-level conversation to notify after the VS Code workspace changes.
-
-## [0.2.1] - 2026-07-30
-
-- Filtered out guardian, subagent, and other internal Codex sessions that emit
-  their own intermediate `task_complete` events.
-- Added diagnostics for eligible and ignored session sources.
-
-## [0.2.0] - 2026-07-30
-
-- Consolidated Remote SSH detection and local sound playback into one UI extension.
-- Replaced `Codex.log` WebView activity inference with authoritative
-  `task_complete` events from Codex session JSONL files.
-- Added remote session discovery through `vscode.workspace.fs` and configurable
-  local/remote session paths.
-
-## [0.1.9] - 2026-07-30
-
-- Added detailed log-source diagnostics for troubleshooting Remote SSH auto-detection.
-
-## [0.1.8] - 2026-07-30
-
-- Added Remote SSH workspace support by running notifications in the local UI extension host.
-- Switched relative manual-trigger reads to the VS Code file-system API so `.codex-notify` can be watched on remote workspace roots.
-- Added discovery and polling of Codex logs in remote VS Code Server hosts and the current `exthost*` log layout.
-- Matched explicit per-conversation turn-start and completion markers so silence alone no longer triggers or suppresses notifications.
-- Added remote workspace details to diagnostics and documented local versus remote path behavior.
+- Added Remote SSH workspace support for Codex session notifications.
+- Kept notifications and sounds running in the local UI extension host.
+- Switched auto-detection to authoritative Codex session JSONL `task_complete`
+  events.
+- Ignored inherited, replayed, guardian, and subagent session history so only
+  fresh top-level work notifies.
+- Added detailed remote session diagnostics and configurable local or remote
+  session paths.
+- Credit: Remote SSH implementation and follow-up fixes were contributed by
+  Ae-Mc in [PR #1](https://github.com/zis3c/Codex-notifier-vscode/pull/1).
 
 ## [0.1.7] - 2026-07-24
 
