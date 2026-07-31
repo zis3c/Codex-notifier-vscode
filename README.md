@@ -157,19 +157,29 @@ directory.
 
 ```text
 codex-finish-notifier-vscode/
+|- .eslintrc.cjs               # ESLint config
+|- .github/
+|  `- workflows/
+|     `- ci.yml                # GitHub Actions CI
 |- .gitignore                    # Git exclusions for local/dev artifacts
 |- .vscodeignore                 # VSIX packaging exclusions
 |- AUTO_DEPLOY.md                # Release/deploy workflow documentation
+|- CHANGELOG.md                  # Version history
 |- CONTRIBUTING.md               # Contribution workflow and coding notes
 |- INSTALLATION.md               # End-user and dev installation guide
 |- LICENSE                       # MIT license
 |- README.md                     # Main documentation and feature overview
+|- package-lock.json             # Locked npm dependency tree
 |- package.json                  # VS Code extension manifest/config schema
 |- extension.js                  # Core extension runtime (commands + watchers)
+|- scripts/
+|  |- test-session-events.js     # Unit-style session event checks
+|  |- test-vsix.js               # VSIX smoke test
+|  `- validate-release.js        # Release validation checks
+|- session-events.js             # Session parsing helpers
 |- codex-done.ps1                # Helper trigger script for .codex-notify flow
 |- notification1.wav             # Bundled default sound (error)
 |- notification2.wav             # Bundled default sound (complete)
-|- codex-notifier-private.vsix   # Prebuilt install artifact for direct install
 `- .vscode/
    `- launch.json                # Extension Development Host debug profile
 ```
@@ -177,6 +187,8 @@ codex-finish-notifier-vscode/
 Notes:
 - `.vscode/settings.json` is intentionally local-only and not tracked in git.
 - `.codex-notify` is runtime trigger data and not tracked in git.
+- `codex-notifier-private.vsix` is a generated install artifact, not a source
+  file.
 
 ## License
 
