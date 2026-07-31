@@ -115,7 +115,7 @@ function showWindowsToast(title, message) {
     const script = [
       "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null;",
       "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null;",
-      `$xml = @'<toast><visual><binding template=\"ToastGeneric\"><text>${t}</text><text>${m}</text></binding></visual></toast>'@;`,
+      `$xml = @'<toast><visual><binding template="ToastGeneric"><text>${t}</text><text>${m}</text></binding></visual></toast>'@;`,
       "$doc = New-Object Windows.Data.Xml.Dom.XmlDocument;",
       "$doc.LoadXml($xml);",
       "$toast = [Windows.UI.Notifications.ToastNotification]::new($doc);",
@@ -251,7 +251,7 @@ function playSound(filePath, volume) {
  * - `message`: user-facing text
  * - `options`: reserved for future mode flags
  */
-async function notify(kind, message, options = {}) {
+async function notify(kind, message, _options = {}) {
   const config = getConfig();
   const enablePopup = config.get("enablePopup", true);
   const completionUseBanner = config.get("completionUseBanner", false);
@@ -805,7 +805,7 @@ function startCodexDocumentWatcher(context) {
 }
 
 // File-trigger watcher: write to `.codex-notify` to manually signal complete/error.
-function startWatcher(context) {
+function startWatcher(_context) {
   stopWatcher();
 
   const config = getConfig();

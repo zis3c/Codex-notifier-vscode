@@ -10,13 +10,11 @@
 
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
-    <img src="https://img.shields.io/visual-studio-marketplace/v/zis3c.codex-notifier?label=Marketplace&color=007ACC" alt="VS Code Marketplace Version" />
+    <img src="https://img.shields.io/visual-studio-marketplace/v/zis3c.codex-notifier?label=Marketplace&style=flat-square&color=007ACC&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace Version" />
   </a>
-  <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
-    <img src="https://img.shields.io/visual-studio-marketplace/i/zis3c.codex-notifier?label=Installs" alt="VS Code Marketplace Installs" />
-  </a>
-  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey" alt="Platform" />
-  <img src="https://img.shields.io/badge/License-MIT-green" alt="License" />
+  <img src="https://img.shields.io/github/actions/workflow/status/zis3c/Codex-notifier-vscode/ci.yml?branch=main&label=CI&style=flat-square" alt="CI status" />
+  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-777777?style=flat-square" alt="Platform" />
+  <img src="https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square" alt="License" />
 </p>
 
 A lightweight VS Code extension that notifies you when Codex responses finish using sound and configurable UI alerts (quiet status or banner popup).
@@ -129,6 +127,31 @@ directory.
 - [CONTRIBUTING.md](./CONTRIBUTING.md)
 - [SECURITY.md](./SECURITY.md)
 - [AUTO_DEPLOY.md](./AUTO_DEPLOY.md)
+
+## Testing
+
+- Local syntax and release checks:
+  - `node --check extension.js`
+  - `npm run check`
+  - `npm run lint`
+  - `npm test`
+  - `npm run package:test`
+  - `npm run ci`
+- Manual smoke test:
+  - install the VSIX
+  - run `Codex Notifier: Test Sound`
+  - verify the package loads and the commands work
+- Manual remote live test:
+  - open a Remote SSH VS Code window
+  - verify notifications and sound on the local UI machine
+  - confirm the remote host session watcher still reacts correctly
+- What automation does not cover yet:
+  - no full UI E2E test for the VS Code window
+  - no automated Remote SSH live test in GitHub Actions
+- CI:
+  - GitHub Actions runs the same checks on every push and pull request across
+    Windows, macOS, and Linux
+  - `npm run ci` matches the main automated checks locally
 
 ## Project Structure
 

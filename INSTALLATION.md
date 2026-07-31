@@ -43,6 +43,8 @@ Direct Marketplace link:
 3. In Extension Development Host:
    - Open Command Palette (`Ctrl+Shift+P`).
    - Run `Codex Notifier: Test Sound`.
+   - Run `Codex Notifier: Show Diagnostics` if you want to confirm the active
+     runtime state.
 
 ---
 
@@ -52,7 +54,9 @@ Direct Marketplace link:
    - `codexNotifier.enableSound = true`
 2. Run `Codex Notifier: Test Sound`.
 3. Confirm you hear sound and see status/banner based on your settings.
-4. Leave the auto-detect defaults alone unless you need to tune false positives:
+4. Run `Codex Notifier: Show Diagnostics` to confirm the package loaded and the
+   extension sees the expected session sources.
+5. Leave the auto-detect defaults alone unless you need to tune false positives:
    - `codexNotifier.codexLogMinEvents = 2`
    - `codexNotifier.codexLogMinBurstMs = 250`
 
@@ -79,6 +83,8 @@ Direct Marketplace link:
   `codexNotifier.remoteSessionsPath`.
 - Run `Codex Notifier: Show Diagnostics` to confirm that remote session sources
   were discovered.
+- Remote live behavior still needs manual smoke testing. There is no automated
+  Remote SSH end-to-end test in CI yet.
 
 ---
 
@@ -95,3 +101,7 @@ Direct Marketplace link:
 
 - **Too many notifications**
   - Increase `codexNotifier.codexChatCooldownMs`.
+
+- **Want a quick package check**
+  - Run `npm run package:test`.
+  - This checks the VSIX contents, not the full VS Code UI flow.

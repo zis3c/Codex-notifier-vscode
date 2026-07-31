@@ -4,7 +4,12 @@
 .codex-notify
 *.log
 node_modules/**
+test/**
 
 # Local helper/scripts/docs not required at runtime
 codex-done.ps1
 README.md
+.github/**
+scripts/**
+.eslintrc.cjs
+package-lock.json

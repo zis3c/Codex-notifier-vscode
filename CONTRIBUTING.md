@@ -37,11 +37,15 @@ Thanks for contributing. Bug fixes, docs improvements, and UX refinements are we
 ## Validation Checklist
 
 - `node --check extension.js` passes.
+- `npm run ci` passes.
+- `npm run package:test` passes.
 - `package.json` stays valid JSON.
-- `Codex Notifier: Test Sound` works.
+- `Codex Notifier: Test Sound` works in a local VS Code window.
 - Completion notify fires once per real response burst, not on open or close chatter.
 - Quiet/banner toggle behaves correctly.
 - Auto-detect stays quiet on chat open and chat quit.
+- Remote SSH live behavior is still manual test only.
+- Full UI E2E for the VS Code window is not automated yet.
 
 ## Packaging Notes
 
@@ -49,6 +53,12 @@ Build install artifact with:
 
 ```bash
 npm exec --yes @vscode/vsce package -- --out codex-notifier-private.vsix
+```
+
+For release checks, use:
+
+```bash
+npm run ci
 ```
 
 ## License

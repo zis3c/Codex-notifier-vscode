@@ -5,14 +5,20 @@ This project currently uses **manual release packaging**.
 ## Current Flow
 
 1. Update code and version in `package.json`.
-2. Build VSIX:
+2. Run the local checks:
+
+```bash
+npm run ci
+```
+
+3. Build VSIX:
 
 ```bash
 npm exec --yes @vscode/vsce package -- --out codex-notifier-private.vsix
 ```
 
-3. Commit and push source to GitHub.
-4. Share `.vsix` via:
+4. Commit and push source to GitHub.
+5. Share `.vsix` via:
    - GitHub Release asset (recommended)
    - or repository file (optional)
 
@@ -38,3 +44,6 @@ You can automate with GitHub Actions:
 - Ensure bundled sounds are present before packaging:
   - `notification1.wav`
   - `notification2.wav`
+- Rebuild the VSIX after any code, manifest, or packaging change that you want
+  reflected in the installable file.
+- If you only change docs, a VSIX rebuild is not required.

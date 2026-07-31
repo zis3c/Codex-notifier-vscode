@@ -1,5 +1,14 @@
-﻿# Local/dev-only
+# Local/dev-only
 .vscode/settings.json
+.vscode/*.local.json
+.vscode/*.code-workspace
+.vscode-test/
+.ssh/
+*.env
+*.key
+*.pem
+*.bak
+*.orig
 
 # OS noise
 Thumbs.db
@@ -7,3 +16,6 @@ Thumbs.db
 
 # Optional debug noise
 *.log
+
+# Local dependencies
+node_modules/

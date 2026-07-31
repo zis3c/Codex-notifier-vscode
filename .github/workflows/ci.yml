@@ -1,0 +1,48 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install
+        run: npm ci
+        shell: pwsh
+
+      - name: Syntax check
+        run: node --check extension.js
+        shell: pwsh
+
+      - name: Release validation
+        run: npm run check
+        shell: pwsh
+
+      - name: Lint
+        run: npm run lint
+        shell: pwsh
+
+      - name: Tests
+        run: npm test
+        shell: pwsh
+
+      - name: VSIX smoke test
+        run: npm run package:test
+        shell: pwsh

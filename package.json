@@ -167,9 +167,16 @@
   },
   "scripts": {
     "check": "node ./scripts/validate-release.js",
-    "lint": "npm run check",
-    "release:check": "npm run check && npm test",
+    "lint": "eslint extension.js scripts/*.js",
+    "ci": "npm run check && npm run lint && npm test && npm run package:test",
+    "package:test": "node ./scripts/test-vsix.js",
+    "release:check": "npm run check && npm run lint && npm test && npm run package:test",
     "test": "node ./scripts/test-session-events.js"
+  },
+  "devDependencies": {
+    "adm-zip": "^0.5.16",
+    "eslint": "^8.57.1",
+    "mocha": "^11.7.6"
   },
   "license": "MIT",
   "repository": {
