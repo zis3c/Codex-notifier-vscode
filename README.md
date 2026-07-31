@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD032 MD033 MD034 MD041 MD060 -->
 <p align="center">
   <img src="./logo.png" alt="Codex Notifier Logo" width="120" />
 </p>
@@ -193,3 +194,5 @@ Notes:
 ## License
 
 MIT. See [LICENSE](./LICENSE).
+
+<!-- markdownlint-enable MD032 MD033 MD034 MD041 MD060 -->

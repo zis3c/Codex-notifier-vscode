@@ -5,38 +5,38 @@ This project currently uses **manual release packaging**.
 ## Current Flow
 
 1. Update code and version in `package.json`.
-2. Run the local checks:
+1. Run the local checks:
 
 ```bash
 npm run ci
 ```
 
-3. Build VSIX:
+1. Build VSIX:
 
 ```bash
 npm exec --yes @vscode/vsce package -- --out codex-notifier-private.vsix
 ```
 
-4. Commit and push source to GitHub.
-5. Share `.vsix` via:
+1. Commit and push source to GitHub.
+1. Share `.vsix` via:
    - GitHub Release asset (recommended)
    - or repository file (optional)
 
 ## Recommended GitHub Release Flow
 
 1. Create tag (example `v0.0.2`).
-2. Open GitHub `Releases` -> `Draft a new release`.
-3. Upload `codex-notifier-private.vsix`.
-4. Publish release notes.
+1. Open GitHub `Releases` -> `Draft a new release`.
+1. Upload `codex-notifier-private.vsix`.
+1. Publish release notes.
 
 ## Optional Future Automation
 
 You can automate with GitHub Actions:
 
 1. Trigger on version tag push.
-2. Install Node + `@vscode/vsce`.
-3. Build VSIX.
-4. Upload VSIX to release automatically.
+1. Install Node + `@vscode/vsce`.
+1. Build VSIX.
+1. Upload VSIX to release automatically.
 
 ## Notes
 
