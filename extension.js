@@ -3,7 +3,7 @@ const fs = require("fs");
 const path = require("path");
 const { execFile } = require("child_process");
 const {
-  isInheritedForkCompletion,
+  isHistoricalSessionCompletion,
   parseTaskCompleteLine
 } = require("./session-events");
 const extensionVersion = require("./package.json").version;
@@ -26,7 +26,7 @@ let codexLogRemainders = new Map();
 let codexLogFilesCache = [];
 let codexLogFilesCacheAt = 0;
 let codexLogPollBusy = false;
-let codexSessionInitialDiscoveryDone = false;
+let codexLogWatcherStartedAt = 0;
 let codexCompletedTurnIds = new Set();
 let codexSessionInfo = new Map();
 let statusItem = null;
@@ -336,7 +336,7 @@ function stopCodexLogWatcher() {
   codexLogFilesCache = [];
   codexLogFilesCacheAt = 0;
   codexLogPollBusy = false;
-  codexSessionInitialDiscoveryDone = false;
+  codexLogWatcherStartedAt = 0;
   codexCompletedTurnIds.clear();
   codexSessionInfo.clear();
 }
@@ -604,7 +604,7 @@ async function getSessionInfo(source, size) {
   return info;
 }
 
-async function processCodexSessionChunk(chunk, sourceKey, sessionInfo, initialForkRead = false) {
+async function processCodexSessionChunk(chunk, sourceKey, sessionInfo, historyNotBeforeMs) {
   const combined = (codexLogRemainders.get(sourceKey) || "") + chunk;
   const lines = combined.split(/\r?\n/);
   codexLogRemainders.set(sourceKey, lines.pop() || "");
@@ -613,9 +613,9 @@ async function processCodexSessionChunk(chunk, sourceKey, sessionInfo, initialFo
     const completion = parseTaskCompleteLine(line);
     const turnId = completion?.turnId;
     if (!turnId || codexCompletedTurnIds.has(turnId)) continue;
-    if (isInheritedForkCompletion(completion, sessionInfo, initialForkRead)) {
+    if (isHistoricalSessionCompletion(completion, sessionInfo, historyNotBeforeMs)) {
       logDebug(
-        `inherited task_complete ignored source=${sourceKey} turnId=${turnId} forkedFrom=${sessionInfo.forkedFromId}`
+        `historical task_complete ignored source=${sourceKey} turnId=${turnId} cutoff=${fmtTs(historyNotBeforeMs)}`
       );
       continue;
     }
@@ -651,6 +651,7 @@ function startCodexLogWatcher() {
 
   const pollMsRaw = cfg.get("codexLogPollMs", 700);
   const pollMs = Number.isFinite(pollMsRaw) ? Math.max(300, pollMsRaw) : 700;
+  codexLogWatcherStartedAt = Date.now();
 
   const poll = async () => {
     if (codexLogPollBusy) return;
@@ -673,15 +674,19 @@ function startCodexLogWatcher() {
           if (!sessionInfo?.eligible) continue;
 
           let offset = codexLogOffsets.get(source.key);
-          let initialForkRead = false;
+          let historyNotBeforeMs;
           if (offset == null) {
-            // Ignore history on the initial scan. A session first discovered
-            // later is new, so read it from byte zero to catch very short turns.
-            offset = codexSessionInitialDiscoveryDone ? 0 : stat.size;
-            initialForkRead = codexSessionInitialDiscoveryDone && offset === 0;
+            // Read a newly discovered source from byte zero so very short turns
+            // are not missed, but accept only completions produced after this
+            // watcher started and after this rollout was created. This prevents
+            // late remote discovery and resumed chats from replaying history.
+            offset = 0;
+            historyNotBeforeMs = codexLogWatcherStartedAt;
             codexLogOffsets.set(source.key, offset);
             codexLogRemainders.set(source.key, "");
-            logDebug(`session tail start source=${source.key} offset=${offset}`);
+            logDebug(
+              `session tail start source=${source.key} offset=${offset} historyCutoff=${fmtTs(historyNotBeforeMs)}`
+            );
           }
           if (stat.size < offset) {
             offset = 0;
@@ -691,12 +696,11 @@ function startCodexLogWatcher() {
 
           const chunk = await readCodexSessionChunk(source, offset, stat.size);
           codexLogOffsets.set(source.key, stat.size);
-          await processCodexSessionChunk(chunk, source.key, sessionInfo, initialForkRead);
+          await processCodexSessionChunk(chunk, source.key, sessionInfo, historyNotBeforeMs);
         } catch (error) {
           logDebug(`session read failed source=${source.key} error=${String(error)}`);
         }
       }
-      codexSessionInitialDiscoveryDone = true;
     } catch (error) {
       logDebug(`session discovery failed error=${String(error)}`);
     } finally {

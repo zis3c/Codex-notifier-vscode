@@ -32,21 +32,25 @@ function parseTaskCompleteLine(line) {
   }
 }
 
-function isInheritedForkCompletion(completion, sessionInfo, initialForkRead) {
-  if (!sessionInfo?.forkedFromId) return false;
+function isHistoricalSessionCompletion(completion, sessionInfo, historyNotBeforeMs) {
+  if (!Number.isFinite(historyNotBeforeMs)) return false;
 
-  const forkedAtMs = sessionInfo.createdAtMs;
-  if (Number.isFinite(forkedAtMs) && Number.isFinite(completion?.completedAtMs)) {
-    return completion.completedAtMs < forkedAtMs;
+  const createdAtMs = sessionInfo?.createdAtMs;
+  const cutoffMs = Number.isFinite(createdAtMs)
+    ? Math.max(historyNotBeforeMs, createdAtMs)
+    : historyNotBeforeMs;
+
+  if (Number.isFinite(completion?.completedAtMs)) {
+    return completion.completedAtMs < cutoffMs;
   }
 
-  // If a forked session does not contain usable timestamps, ignore only the
-  // initial copied snapshot. Later appends remain eligible for notification.
-  return Boolean(initialForkRead);
+  // An undated completion in the first snapshot cannot be proven current.
+  // Later appends are processed without a cutoff and remain eligible.
+  return true;
 }
 
 module.exports = {
-  isInheritedForkCompletion,
+  isHistoricalSessionCompletion,
   parseTaskCompleteLine,
   parseTimestampMs
 };

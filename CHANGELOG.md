@@ -2,6 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.4] - 2026-07-31
+
+- Prevented old `task_complete` history from replaying when an existing chat
+  is resumed or remote session files become visible after watcher startup.
+
 ## [0.2.3] - 2026-07-31
 
 - Ignored inherited `task_complete` history when Codex forks an existing

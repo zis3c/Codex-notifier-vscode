@@ -2,7 +2,7 @@
 
 const assert = require("assert");
 const {
-  isInheritedForkCompletion,
+  isHistoricalSessionCompletion,
   parseTaskCompleteLine,
   parseTimestampMs
 } = require("../session-events");
@@ -23,13 +23,14 @@ const forkedSession = {
   forkedFromId: "parent-session",
   createdAtMs: Date.parse("2026-07-30T23:05:22.986Z")
 };
+const watcherStartedAtMs = Date.parse("2026-07-30T23:00:00.000Z");
 
 const inherited = parseTaskCompleteLine(
   completionLine("old-turn", 1785452598)
 );
 assert.strictEqual(inherited.turnId, "old-turn");
 assert.strictEqual(
-  isInheritedForkCompletion(inherited, forkedSession, true),
+  isHistoricalSessionCompletion(inherited, forkedSession, watcherStartedAtMs),
   true,
   "a completion copied from before the fork must be ignored"
 );
@@ -38,24 +39,36 @@ const newCompletion = parseTaskCompleteLine(
   completionLine("new-turn", 1785452820)
 );
 assert.strictEqual(
-  isInheritedForkCompletion(newCompletion, forkedSession, true),
+  isHistoricalSessionCompletion(newCompletion, forkedSession, watcherStartedAtMs),
   false,
   "a completion produced after the fork must notify"
 );
 
+const resumedSession = {
+  forkedFromId: "",
+  createdAtMs: Date.parse("2026-07-30T16:30:19.903Z")
+};
+const oldResumedCompletion = parseTaskCompleteLine(
+  completionLine("old-resumed-turn", 1785429316)
+);
 assert.strictEqual(
-  isInheritedForkCompletion(inherited, { forkedFromId: "", createdAtMs: forkedSession.createdAtMs }, true),
+  isHistoricalSessionCompletion(oldResumedCompletion, resumedSession, watcherStartedAtMs),
+  true,
+  "old completions from a resumed top-level chat must be ignored"
+);
+assert.strictEqual(
+  isHistoricalSessionCompletion(newCompletion, resumedSession, watcherStartedAtMs),
   false,
-  "normal top-level sessions must keep their existing behavior"
+  "a new completion from a resumed top-level chat must notify"
 );
 
 assert.strictEqual(
-  isInheritedForkCompletion({ turnId: "missing-time" }, forkedSession, true),
+  isHistoricalSessionCompletion({ turnId: "missing-time" }, forkedSession, watcherStartedAtMs),
   true,
-  "an undated completion in the initial fork snapshot must be ignored"
+  "an undated completion in the initial session snapshot must be ignored"
 );
 assert.strictEqual(
-  isInheritedForkCompletion({ turnId: "later-missing-time" }, forkedSession, false),
+  isHistoricalSessionCompletion({ turnId: "later-missing-time" }, forkedSession, undefined),
   false,
   "an undated completion appended later must remain eligible"
 );
