@@ -18,7 +18,7 @@
   <img src="https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square" alt="License" />
 </p>
 
-A lightweight VS Code extension that notifies you when Codex responses finish using sound and configurable UI alerts (quiet status or banner popup).
+A lightweight VS Code extension that notifies you when Codex responses finish or pauses for input using sound and configurable UI alerts that follow the same quiet-status vs banner setting.
 
 > [!NOTE]
 > Built for fast feedback loops: use automatic Codex session completion detection or the manual `.codex-notify` file trigger.
@@ -30,8 +30,9 @@ A lightweight VS Code extension that notifies you when Codex responses finish us
   - Complete -> `notification2.wav`
   - Error -> `notification1.wav`
 - Auto completion detection from Codex stream logs with safer burst checks.
+- Prompt detection when Codex pauses for `request_user_input`.
 - Optional document-based idle detection fallback.
-- Quiet mode or banner mode for completion notifications.
+- Quiet mode or banner mode for completion and prompt notifications.
 - Manual trigger support through `.codex-notify` and `codex-done.ps1`.
 - Remote SSH workspace support: notifications and sounds run locally while relative trigger files are watched on the remote host.
 
@@ -72,7 +73,7 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 1. Open VS Code settings and search `Codex Notifier`.
 2. Keep defaults (recommended): sound on, auto-detection on, safer burst thresholds.
 3. Run `Codex Notifier: Test Sound` from Command Palette.
-4. Ask Codex something and wait for response completion notification.
+4. Ask Codex something and wait for either response completion or `request_user_input` notification.
 
 ## How It Works
 
@@ -84,16 +85,20 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 6. When the file content changes:
    - Contains `error` -> error notification
    - Any other non-empty content -> complete notification
-7. Auto mode tails Codex session JSONL files and reacts only to authoritative `task_complete` events.
+7. Auto mode tails Codex session JSONL files and reacts to authoritative `task_complete` and `request_user_input` events.
+8. Prompt notifications use the same `codexNotifier.completionUseBanner` setting as completion notifications.
 
 ### Remote SSH Workspaces
 
 Codex Notifier remains a single extension running in VS Code's local UI
 extension host, so sounds and notifications are produced on your computer. In a
 Remote SSH window it reads `~/.codex/sessions/**/*.jsonl` through VS Code's
-remote file-system API and reacts to authoritative `task_complete` events.
+remote file-system API and reacts to authoritative `task_complete` and
+`request_user_input` events.
 Guardian and subagent sessions are ignored, because their intermediate
 `task_complete` events do not mean the user's top-level task has finished.
+`request_user_input` events mean Codex is waiting for the user to answer, so
+they should notify immediately.
 When a conversation is forked into a new task, inherited completion history is
 also ignored. Resuming an existing chat does not replay its previous
 completions; only newly completed work produces a notification.

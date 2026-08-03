@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.9] - 2026-08-03
+
+- Added prompt notifications when Codex pauses with `request_user_input`.
+- Kept completion notifications on `task_complete` and made prompt pauses notify with the same local sound and popup flow.
+- Thanks to [CarlossShi](https://github.com/CarlossShi) for the idea and report in [issue #2](https://github.com/zis3c/Codex-notifier-vscode/issues/2).
+
 ## [0.1.8] - 2026-07-31
 
 - Added Remote SSH workspace support for Codex session notifications.

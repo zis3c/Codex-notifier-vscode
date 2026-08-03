@@ -5,6 +5,8 @@ const path = require("path");
 const { execFile } = require("child_process");
 const {
   isHistoricalSessionCompletion,
+  isHistoricalSessionRequest,
+  parseRequestUserInputLine,
   parseTaskCompleteLine
 } = require("./session-events");
 const extensionVersion = require("./package.json").version;
@@ -29,6 +31,7 @@ let codexLogFilesCacheAt = 0;
 let codexLogPollBusy = false;
 let codexLogWatcherStartedAt = 0;
 let codexCompletedTurnIds = new Set();
+let codexInputRequestTurnIds = new Set();
 let codexSessionInfo = new Map();
 let statusItem = null;
 let statusTimer = null;
@@ -53,6 +56,7 @@ function getDiagnosticsSummary() {
     trackedSessionFiles: codexLogOffsets.size,
     ignoredSessionFiles: [...codexSessionInfo.values()].filter((info) => !info.eligible).length,
     completedTurnIds: codexCompletedTurnIds.size,
+    inputRequestTurnIds: codexInputRequestTurnIds.size,
     lastNotifyAt: fmtTs(lastCodexNotifyAt)
   };
 }
@@ -339,6 +343,7 @@ function stopCodexLogWatcher() {
   codexLogPollBusy = false;
   codexLogWatcherStartedAt = 0;
   codexCompletedTurnIds.clear();
+  codexInputRequestTurnIds.clear();
   codexSessionInfo.clear();
 }
 
@@ -620,6 +625,23 @@ async function processCodexSessionChunk(chunk, sourceKey, sessionInfo, historyNo
   codexLogRemainders.set(sourceKey, lines.pop() || "");
 
   for (const line of lines) {
+    const request = parseRequestUserInputLine(line);
+    if (request) {
+      const requestKey = `${sourceKey}:${request.turnId || request.callId}`;
+      if (codexInputRequestTurnIds.has(requestKey)) continue;
+      if (isHistoricalSessionRequest(request, sessionInfo, historyNotBeforeMs)) {
+        logDebug(
+          `historical request_user_input ignored source=${sourceKey} turnId=${request.turnId} cutoff=${fmtTs(historyNotBeforeMs)}`
+        );
+        continue;
+      }
+      codexInputRequestTurnIds.add(requestKey);
+      lastCodexNotifyAt = Date.now();
+      logDebug(`request_user_input source=${sourceKey} turnId=${request.turnId} callId=${request.callId || "n/a"}`);
+      await notify("complete", "Codex: needs your input", { mode: "auto", turnId: request.turnId });
+      continue;
+    }
+
     const completion = parseTaskCompleteLine(line);
     const turnId = completion?.turnId;
     if (!turnId || codexCompletedTurnIds.has(turnId)) continue;
@@ -651,7 +673,8 @@ function isLikelyCodexDocument(doc) {
  *
  * The extension stays in the local UI host so it can play audio locally. In a
  * Remote SSH window it accesses ~/.codex/sessions through vscode.workspace.fs,
- * tails recent JSONL session files, and reacts only to task_complete events.
+ * tails recent JSONL session files, and reacts to task_complete plus
+ * request_user_input events.
  */
 function startCodexLogWatcher() {
   stopCodexLogWatcher();

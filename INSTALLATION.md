@@ -53,7 +53,7 @@ Direct Marketplace link:
 1. Confirm sound is enabled:
    - `codexNotifier.enableSound = true`
 2. Run `Codex Notifier: Test Sound`.
-3. Confirm you hear sound and see status/banner based on your settings.
+3. Confirm you hear sound and see status/banner based on your settings for both completion and `request_user_input`.
 4. Run `Codex Notifier: Show Diagnostics` to confirm the package loaded and the
    extension sees the expected session sources.
 5. Leave the auto-detect defaults alone unless you need to tune false positives:
@@ -67,7 +67,7 @@ Direct Marketplace link:
 - Leave these empty to use bundled sounds:
   - `codexNotifier.completeSoundPath`
   - `codexNotifier.errorSoundPath`
-- Toggle completion UI mode:
+- Toggle completion and prompt UI mode:
   - `codexNotifier.completionUseBanner = true` (banner)
   - `codexNotifier.completionUseBanner = false` (quiet status bar)
 
@@ -78,7 +78,8 @@ Direct Marketplace link:
 - Keep `codexNotifier.watchFilePath` relative (the default is `.codex-notify`) to watch the trigger file on the SSH host.
 - Absolute trigger and custom sound paths refer to the local computer.
 - The same local extension reads remote `~/.codex/sessions/**/*.jsonl` files
-  through the Remote SSH file-system provider and watches `task_complete`.
+  through the Remote SSH file-system provider and watches `task_complete`
+  plus `request_user_input`.
 - For nonstandard home layouts, configure the absolute remote path in
   `codexNotifier.remoteSessionsPath`.
 - Run `Codex Notifier: Show Diagnostics` to confirm that remote session sources
