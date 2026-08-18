@@ -11,10 +11,10 @@
 
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
-    <img src="https://shieldcn.dev/vscode/v/zis3c/codex-notifier.png" alt="VS Code Marketplace Version" />
+    <img src="https://img.shields.io/badge/Marketplace-0.1.9-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace Version" />
   </a>
   <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
-    <img src="https://shieldcn.dev/vscode/installs/zis3c/codex-notifier.png" alt="VS Code Marketplace Installs" />
+    <img src="https://img.shields.io/badge/Installs-1K%2B-2ea44f?style=flat-square" alt="VS Code Marketplace Installs" />
   </a>
   <img src="https://img.shields.io/github/actions/workflow/status/zis3c/Codex-notifier-vscode/ci.yml?branch=main&label=CI&style=flat-square" alt="CI status" />
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-777777?style=flat-square" alt="Platform" />
