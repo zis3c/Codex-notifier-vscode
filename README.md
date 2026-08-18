@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
-    <img src="https://img.shields.io/badge/Marketplace-0.1.9-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace Version" />
+    <img src="https://img.shields.io/badge/Marketplace-0.1.10-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace Version" />
   </a>
   <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
     <img src="https://img.shields.io/badge/Installs-1K%2B-2ea44f?style=flat-square" alt="VS Code Marketplace Installs" />
