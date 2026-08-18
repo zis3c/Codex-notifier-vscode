@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.1.10] - 2026-08-18
+
+- Fixed Windows unfocused system toast notifications by sending valid PowerShell toast XML instead of a broken one-line here-string.
+- Fixed Windows unfocused system toast notifications to use the VS Code AppUserModelID `Microsoft.VisualStudioCode` so the OS can surface the toast correctly.
+- Thanks to [mapengsen](https://github.com/mapengsen) for reporting [issue #3](https://github.com/zis3c/Codex-notifier-vscode/issues/3) and to [CaoeUU](https://github.com/CaoeUU) for contributing the fix in [PR #4](https://github.com/zis3c/Codex-notifier-vscode/pull/4).
+
 ## [0.1.9] - 2026-08-03
 
 - Added prompt notifications when Codex pauses with `request_user_input`.

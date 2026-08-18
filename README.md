@@ -11,7 +11,10 @@
 
 <p align="center">
   <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
-    <img src="https://img.shields.io/visual-studio-marketplace/v/zis3c.codex-notifier?label=Marketplace&style=flat-square&color=007ACC&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace Version" />
+    <img src="https://shieldcn.dev/vscode/v/zis3c/codex-notifier.png" alt="VS Code Marketplace Version" />
+  </a>
+  <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
+    <img src="https://shieldcn.dev/vscode/installs/zis3c/codex-notifier.png" alt="VS Code Marketplace Installs" />
   </a>
   <img src="https://img.shields.io/github/actions/workflow/status/zis3c/Codex-notifier-vscode/ci.yml?branch=main&label=CI&style=flat-square" alt="CI status" />
   <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-777777?style=flat-square" alt="Platform" />
@@ -74,6 +77,7 @@ See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
 2. Keep defaults (recommended): sound on, auto-detection on, safer burst thresholds.
 3. Run `Codex Notifier: Test Sound` from Command Palette.
 4. Ask Codex something and wait for either response completion or `request_user_input` notification.
+5. If behavior does not match the settings you just changed, check whether this workspace has its own `.vscode/settings.json` overrides for `codexNotifier.*`.
 
 ## How It Works
 
@@ -116,6 +120,7 @@ directory.
   "codexNotifier.enableSound": true,
   "codexNotifier.enablePopup": true,
   "codexNotifier.completionUseBanner": false,
+  "codexNotifier.toastWhenUnfocused": true,
   "codexNotifier.monitorCodexLog": true,
   "codexNotifier.codexLogPollMs": 400,
   "codexNotifier.codexLogIdleMs": 500,
@@ -147,6 +152,7 @@ directory.
   - install the VSIX
   - run `Codex Notifier: Test Sound`
   - verify the package loads and the commands work
+  - test once with VS Code focused and once with VS Code unfocused to confirm banner or quiet mode plus system toast behavior
 - Manual remote live test:
   - open a Remote SSH VS Code window
   - verify notifications and sound on the local UI machine

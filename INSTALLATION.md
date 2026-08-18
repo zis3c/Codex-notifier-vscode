@@ -54,9 +54,10 @@ Direct Marketplace link:
    - `codexNotifier.enableSound = true`
 2. Run `Codex Notifier: Test Sound`.
 3. Confirm you hear sound and see status/banner based on your settings for both completion and `request_user_input`.
-4. Run `Codex Notifier: Show Diagnostics` to confirm the package loaded and the
+4. If VS Code is unfocused and `codexNotifier.toastWhenUnfocused = true`, confirm you also get a system notification.
+5. Run `Codex Notifier: Show Diagnostics` to confirm the package loaded and the
    extension sees the expected session sources.
-5. Leave the auto-detect defaults alone unless you need to tune false positives:
+6. Leave the auto-detect defaults alone unless you need to tune false positives:
    - `codexNotifier.codexLogMinEvents = 2`
    - `codexNotifier.codexLogMinBurstMs = 250`
 
@@ -70,6 +71,10 @@ Direct Marketplace link:
 - Toggle completion and prompt UI mode:
   - `codexNotifier.completionUseBanner = true` (banner)
   - `codexNotifier.completionUseBanner = false` (quiet status bar)
+- Toggle unfocused system notifications:
+  - `codexNotifier.toastWhenUnfocused = true` (show system toast when VS Code is not focused)
+  - `codexNotifier.toastWhenUnfocused = false` (no system toast when VS Code is not focused)
+- If a setting seems ignored, check whether the current workspace `.vscode/settings.json` is overriding your user setting.
 
 ## Remote SSH
 
@@ -99,6 +104,12 @@ Direct Marketplace link:
   - Ensure `codexNotifier.monitorCodexLog = true`.
   - Leave `codexNotifier.codexLogMinEvents` and `codexNotifier.codexLogMinBurstMs` at their safer defaults unless you have a special case.
   - Run `Codex Notifier: Show Diagnostics`.
+
+- **Expected banner or toast does not appear**
+  - Check `codexNotifier.enablePopup = true`.
+  - Check `codexNotifier.completionUseBanner` for focused behavior.
+  - Check `codexNotifier.toastWhenUnfocused` for unfocused behavior.
+  - Check whether workspace settings override your user settings.
 
 - **Too many notifications**
   - Increase `codexNotifier.codexChatCooldownMs`.
