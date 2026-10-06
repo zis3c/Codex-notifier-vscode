@@ -37,6 +37,25 @@ let codexInputRequestTurnIds = new Set();
 let codexSessionInfo = new Map();
 let statusItem = null;
 let statusTimer = null;
+const diagnosticEvents = new Map();
+let lastNotificationAttemptAt = 0;
+let lastNotificationResult = "none";
+
+// Keep bounded metadata only. Never include notification text or transcript bodies.
+function recordDiagnostic(code, source, detail) {
+  const key = `${code}:${source}`;
+  const previous = diagnosticEvents.get(key);
+  const now = Date.now();
+  const event = { code, source, detail, at: fmtTs(now), count: (previous?.count || 0) + 1 };
+  event.loggedAt = previous?.loggedAt || 0;
+  if (!previous || now - event.loggedAt >= 60000) {
+    getOutput().appendLine(`[${event.at}] ${code}: ${source} ${detail}`);
+    event.loggedAt = now;
+  }
+  diagnosticEvents.delete(key);
+  diagnosticEvents.set(key, event);
+  if (diagnosticEvents.size > 30) diagnosticEvents.delete(diagnosticEvents.keys().next().value);
+}
 
 function claimNotification(key) {
   const digest = crypto.createHash("sha256").update(String(key)).digest("hex");
@@ -83,7 +102,9 @@ function getDiagnosticsSummary() {
     ignoredSessionFiles: [...codexSessionInfo.values()].filter((info) => !info.eligible).length,
     completedTurnIds: codexCompletedTurnIds.size,
     inputRequestTurnIds: codexInputRequestTurnIds.size,
-    lastNotifyAt: fmtTs(lastCodexNotifyAt)
+    lastNotifyAt: fmtTs(lastCodexNotifyAt),
+    lastNotificationAttemptAt: fmtTs(lastNotificationAttemptAt),
+    lastNotificationResult
   };
 }
 
@@ -146,6 +167,7 @@ function showWindowsToast(title, message, launchUri = "") {
     const xml = `<toast${launchUri ? ` activationType="protocol" launch="${escXml(launchUri)}"` : ""}><visual><binding template="ToastGeneric"><text>${escXml(title)}</text><text>${escXml(message)}</text></binding></visual>${actionXml}</toast>`;
     const escapedXml = xml.replace(/'/g, "''");
     const script = [
+      "$ErrorActionPreference = 'Stop';",
       "[Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null;",
       "[Windows.Data.Xml.Dom.XmlDocument, Windows.Data.Xml.Dom.XmlDocument, ContentType = WindowsRuntime] > $null;",
       `$xml = '${escapedXml}';`,
@@ -156,15 +178,29 @@ function showWindowsToast(title, message, launchUri = "") {
       "$notifier.Show($toast);"
     ].join(" ");
 
-    execFile("powershell.exe", ["-NoProfile", "-Command", script], () => resolve());
+    execFile("powershell.exe", ["-NoProfile", "-NonInteractive", "-Command", script],
+      { timeout: 10000 }, (error) => {
+        resolve(error ? { status: "failed", code: String(error.code || error.name) } : { status: "submitted" });
+      });
   });
 }
 
 // Cross-platform system notification helper for when VS Code is not focused.
 function showSystemNotification(title, message, launchUri = "") {
+  lastNotificationAttemptAt = Date.now();
+  lastNotificationResult = "pending";
+  const complete = (result) => {
+    lastNotificationResult = result.status;
+    if (result.status === "failed") {
+      recordDiagnostic("system-notification-failed", process.platform, `code=${result.code}`);
+    }
+  };
   return new Promise((resolve) => {
     if (process.platform === "win32") {
-      void showWindowsToast(title, message, launchUri).finally(resolve);
+      void showWindowsToast(title, message, launchUri).then((result) => {
+        complete(result);
+        resolve();
+      });
       return;
     }
 
@@ -172,16 +208,23 @@ function showSystemNotification(title, message, launchUri = "") {
       execFile(
         "osascript",
         ["-e", `display notification ${JSON.stringify(message)} with title ${JSON.stringify(title)}`],
-        () => resolve()
+        (error) => {
+          complete(error ? { status: "failed", code: String(error.code || error.name) } : { status: "submitted" });
+          resolve();
+        }
       );
       return;
     }
 
     if (process.platform === "linux") {
-      execFile("notify-send", [title, message], () => resolve());
+      execFile("notify-send", [title, message], (error) => {
+        complete(error ? { status: "failed", code: String(error.code || error.name) } : { status: "submitted" });
+        resolve();
+      });
       return;
     }
 
+    lastNotificationResult = "unsupported-platform";
     resolve();
   });
 }
@@ -516,6 +559,7 @@ async function notify(kind, message, _options = {}) {
       await new Promise((resolve) => setTimeout(resolve, Math.max(150, workspacePriorityDelay)));
     }
     if (!claimNotification(_options.dedupeKey)) {
+      recordDiagnostic("notification-deduplicated", _options.dedupeKey, "Already claimed by another window or turn.");
       logDebug(`duplicate notification suppressed key=${_options.dedupeKey}`);
       return;
     }
@@ -646,10 +690,18 @@ function getRemoteSessionRoots() {
   const roots = [];
   const seen = new Set();
   for (const uri of getRemoteSourceUris()) {
+    const homePath = inferRemoteHomePath(uri.path);
+    if (!configuredPath && !homePath) {
+      recordDiagnostic("remote-home-unknown", uri.toString(), "Set remoteSessionsPath to the absolute remote sessions directory.");
+      continue;
+    }
     const sessionsPath = configuredPath
       ? configuredPath
-      : `${inferRemoteHomePath(uri.path) || ""}/.codex/sessions`;
-    if (!sessionsPath.startsWith("/")) continue;
+      : `${homePath}/.codex/sessions`;
+    if (!sessionsPath.startsWith("/")) {
+      recordDiagnostic("remote-path-invalid", uri.authority || "remote", "remoteSessionsPath must be an absolute POSIX path, not ~ or a Windows path.");
+      continue;
+    }
     const root = uri.with({ path: sessionsPath, query: "", fragment: "" });
     const key = root.toString();
     if (!seen.has(key)) {
@@ -721,7 +773,8 @@ async function remoteDirectoriesAt(root) {
       .filter(([, type]) => type === vscode.FileType.Directory)
       .map(([name]) => name)
       .sort();
-  } catch {
+  } catch (error) {
+    recordDiagnostic("remote-directory-read-failed", root.toString(), String(error.code || error.name || "unknown"));
     return [];
   }
 }
@@ -738,7 +791,8 @@ async function findRemoteCodexSessionFiles() {
           let entries = [];
           try {
             entries = await vscode.workspace.fs.readDirectory(dayDir);
-          } catch {
+          } catch (error) {
+            recordDiagnostic("remote-directory-read-failed", dayDir.toString(), String(error.code || error.name || "unknown"));
             continue;
           }
           for (const [name, type] of entries) {
@@ -752,7 +806,8 @@ async function findRemoteCodexSessionFiles() {
                 uri,
                 mtimeMs: stat.mtime
               });
-            } catch {
+            } catch (error) {
+              recordDiagnostic("remote-file-stat-failed", uri.toString(), String(error.code || error.name || "unknown"));
               // File may be rotated between listing and stat.
             }
           }
@@ -768,7 +823,10 @@ async function findAllCodexSessionFiles() {
   if (now - codexLogFilesCacheAt < 5000) return codexLogFilesCache;
 
   const remoteRoots = getRemoteSessionRoots();
-  const candidates = remoteRoots.length > 0
+  // A remote workspace with an invalid/missing path must not silently monitor
+  // unrelated sessions on the local UI machine.
+  const isRemoteWorkspace = getRemoteSourceUris().length > 0 || Boolean(vscode.env.remoteName);
+  const candidates = remoteRoots.length > 0 || isRemoteWorkspace
     ? await findRemoteCodexSessionFiles()
     : findLocalCodexSessionFiles();
 
@@ -801,7 +859,8 @@ async function getDetailedDiagnosticsSummary() {
         .map((source) => ({
           source: source.key,
           reason: codexSessionInfo.get(source.key).reason
-        }))
+        })),
+      recentDiagnostics: [...diagnosticEvents.values()].map(({ loggedAt: _loggedAt, ...event }) => event)
     };
   } catch (error) {
     return {
@@ -1063,7 +1122,7 @@ function startCodexLogWatcher() {
           const workspaceMatch = isSessionInCurrentWorkspace(sessionInfo);
           sessionSources.push({ source, stat, sessionInfo, workspaceMatch });
         } catch (error) {
-          logDebug(`session read failed source=${source.key} error=${String(error)}`);
+          recordDiagnostic("session-read-failed", source.key, String(error.code || error.name || "unknown"));
         }
       }
 
@@ -1098,11 +1157,11 @@ function startCodexLogWatcher() {
           codexLogOffsets.set(source.key, stat.size);
           await processCodexSessionChunk(chunk, source, sessionInfo, stat.size, historyNotBeforeMs, workspaceMatch);
         } catch (error) {
-          logDebug(`session read failed source=${source.key} error=${String(error)}`);
+          recordDiagnostic("session-read-failed", source.key, String(error.code || error.name || "unknown"));
         }
       }
     } catch (error) {
-      logDebug(`session discovery failed error=${String(error)}`);
+      recordDiagnostic("session-discovery-failed", "sessions", String(error.code || error.name || "unknown"));
     } finally {
       codexLogPollBusy = false;
     }
@@ -1424,7 +1483,7 @@ function activate(context) {
       const summary = await getDetailedDiagnosticsSummary();
       const out = getOutput();
       out.appendLine("===== Diagnostics =====");
-      Object.entries(summary).forEach(([k, v]) => out.appendLine(`${k}: ${v}`));
+      Object.entries(summary).forEach(([k, v]) => out.appendLine(`${k}: ${JSON.stringify(v, null, 2)}`));
       out.show(true);
       vscode.window.showInformationMessage(
         `Codex Notifier: sessions=${summary.trackedSessionFiles} completed=${summary.completedTurnIds} lastNotify=${summary.lastNotifyAt}`

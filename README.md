@@ -100,6 +100,13 @@ On Windows, v0.1.12 enables toast window focus automatically. The extension reco
 
 ### Remote SSH Workspaces
 
+For a workspace outside a recognizable home directory (for example,
+`/data/alice/project`), configure `codexNotifier.remoteSessionsPath` with the
+absolute remote sessions directory. An unknown home or invalid remote path no
+longer falls back to local sessions. `Show Diagnostics` reports bounded,
+throttled metadata about discovery and read errors. Notification submission
+status means the OS API accepted the request, not that a banner was displayed.
+
 Codex Notifier remains a single extension running in VS Code's local UI
 extension host, so sounds and notifications are produced on your computer. In a
 Remote SSH window it reads `~/.codex/sessions/**/*.jsonl` through VS Code's

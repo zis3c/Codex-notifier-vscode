@@ -171,7 +171,7 @@
     "ci": "npm run check && npm run lint && npm test && npm run package:test",
     "package:test": "node ./scripts/test-vsix.js",
     "release:check": "npm run check && npm run lint && npm test && npm run package:test",
-    "test": "node ./scripts/test-session-events.js && node ./scripts/test-toast-focus.js"
+    "test": "node ./scripts/test-session-events.js && node ./scripts/test-toast-focus.js && node ./scripts/test-remote-diagnostics.js"
   },
   "devDependencies": {
     "adm-zip": "^0.5.16",
