@@ -12,6 +12,7 @@ const {
   parseTaskCompleteLine
 } = require("./session-events");
 const { buildToastFocusLaunchUri } = require("./toast-focus");
+const { shouldSendSystemNotification } = require("./notification-policy");
 const extensionVersion = require("./package.json").version;
 
 /**
@@ -504,7 +505,13 @@ async function notify(kind, message, _options = {}) {
   const toastWhenUnfocused = config.get("toastWhenUnfocused", true);
   const enableSound = config.get("enableSound", true);
   const isFocused = await isWindowsWindowFocused();
-  const shouldSystemNotify = enablePopup && toastWhenUnfocused && !isFocused;
+  const shouldSystemNotify = shouldSendSystemNotification({
+    platform: process.platform,
+    enablePopup,
+    alwaysSystemNotify: config.get("alwaysSystemNotify", false),
+    toastWhenUnfocused,
+    isFocused
+  });
   logDebug(`notify state focused=${isFocused} systemToast=${shouldSystemNotify} key=${_options.dedupeKey || "manual"}`);
 
   // Let an unfocused window win the shared dedupe lock so it can show the

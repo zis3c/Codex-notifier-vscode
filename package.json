@@ -75,6 +75,11 @@
           "default": false,
           "description": "Show completion/test notifications as banner popups. When false, completion/test use quiet status bar only."
         },
+        "codexNotifier.alwaysSystemNotify": {
+          "type": "boolean",
+          "default": false,
+          "description": "On Windows, show system notifications even while VS Code is focused. Requires Enable Popup; overrides Toast When Unfocused. Other platforms retain their existing behavior."
+        },
         "codexNotifier.toastWhenUnfocused": {
           "type": "boolean",
           "default": true,
@@ -167,11 +172,11 @@
   },
   "scripts": {
     "check": "node ./scripts/validate-release.js",
-    "lint": "eslint extension.js scripts/*.js",
+    "lint": "eslint extension.js notification-policy.js scripts/*.js",
     "ci": "npm run check && npm run lint && npm test && npm run package:test",
     "package:test": "node ./scripts/test-vsix.js",
     "release:check": "npm run check && npm run lint && npm test && npm run package:test",
-    "test": "node ./scripts/test-session-events.js && node ./scripts/test-toast-focus.js"
+    "test": "node ./scripts/test-session-events.js && node ./scripts/test-toast-focus.js && node ./scripts/test-notification-policy.js"
   },
   "devDependencies": {
     "adm-zip": "^0.5.16",

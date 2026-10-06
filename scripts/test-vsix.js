@@ -28,6 +28,7 @@ function main() {
     "extension/package.json",
     "extension/extension.js",
     "extension/session-events.js",
+    "extension/notification-policy.js",
     "extension/toast-focus.js",
     "extension/windows-toast-focus.ps1",
     "extension/windows-toast-focus.vbs"
