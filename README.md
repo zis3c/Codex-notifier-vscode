@@ -132,6 +132,12 @@ are not covered yet.
 
 ## Recommended Settings
 
+On Windows, enable `codexNotifier.alwaysSystemNotify` to receive system
+notifications even when a VS Code window is in the foreground. The setting is
+off by default and still respects `codexNotifier.enablePopup`. It overrides
+`toastWhenUnfocused` on Windows only. Windows notification policies such as Do
+Not Disturb may still suppress the displayed banner.
+
 ```json
 {
   "codexNotifier.enableSound": true,
