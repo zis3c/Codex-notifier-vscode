@@ -5,6 +5,7 @@
 - Fixed excessive Remote SSH bandwidth usage by moving Codex session-log tailing onto the SSH host. A new `Codex Notifier Remote` workspace extension tails JSONL files locally and emits small event records; the local UI extension no longer reads whole session transcripts through `vscode.workspace.fs`.
 - The local extension now reads only bounded event files from `~/.codex/codex-notifier-events` (or next to `codexNotifier.remoteSessionsPath`).
 - Added tests for the remote tailer and the local event bridge.
+- Added opt-in `codexNotifier.alwaysSystemNotify` for Windows so system notifications can appear while VS Code is focused. It respects `enablePopup`, overrides `toastWhenUnfocused` on Windows only, and defaults to off. Thanks to [willsqow](https://github.com/willsqow) for [PR #6](https://github.com/zis3c/Codex-notifier-vscode/pull/6).
 - Thanks to [TheGhostFish](https://github.com/TheGhostFish) for reporting [issue #8](https://github.com/zis3c/Codex-notifier-vscode/issues/8).
 
 ## [0.1.12] - 2026-08-28
