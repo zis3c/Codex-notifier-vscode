@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.13] - 2026-11-11
 
 - Fixed excessive Remote SSH bandwidth usage by moving Codex session-log tailing onto the SSH host. A new `Codex Notifier Remote` workspace extension tails JSONL files locally and emits small event records; the local UI extension no longer reads whole session transcripts through `vscode.workspace.fs`.
 - The local extension now reads only bounded event files from `~/.codex/codex-notifier-events` (or next to `codexNotifier.remoteSessionsPath`).

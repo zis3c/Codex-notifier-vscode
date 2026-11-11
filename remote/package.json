@@ -2,7 +2,7 @@
   "name": "codex-notifier-remote",
   "displayName": "Codex Notifier Remote",
   "description": "Runs on the Remote SSH host and reports Codex session events to Codex Notifier without transferring session logs.",
-  "version": "0.1.12",
+  "version": "0.1.13",
   "publisher": "zis3c",
   "engines": {
     "vscode": "^1.80.0"
