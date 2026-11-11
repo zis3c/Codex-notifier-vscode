@@ -125,11 +125,62 @@ function isHistoricalSessionRequest(request, sessionInfo, historyNotBeforeMs) {
   return isHistoricalSessionEvent(request, sessionInfo, historyNotBeforeMs, "requestedAtMs");
 }
 
+function parseSessionMetadata(text) {
+  const newline = text.indexOf("\n");
+  const firstLine = newline >= 0 ? text.slice(0, newline) : text;
+  try {
+    const event = JSON.parse(firstLine);
+    return event?.type === "session_meta" ? event.payload : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function classifySessionMetadata(metadata) {
+  if (metadata?.originator !== "codex_vscode") {
+    return { eligible: false, reason: "non-vscode-originator" };
+  }
+  if (metadata?.source !== "vscode" || metadata?.thread_source === "subagent") {
+    return { eligible: false, reason: "subagent-or-internal-session" };
+  }
+  return { eligible: true, reason: "top-level-vscode-session" };
+}
+
+function getUserMessageTurnId(line) {
+  try {
+    const event = JSON.parse(line);
+    if (event?.type === "event_msg" && event.payload?.type === "user_message") {
+      return String(event.payload.turn_id || "");
+    }
+    if (event?.type === "response_item" && event.payload?.type === "message" && event.payload.role === "user") {
+      return String(event.payload.internal_chat_message_metadata_passthrough?.turn_id || event.payload.turn_id || "");
+    }
+  } catch {
+    return "";
+  }
+  return "";
+}
+
+function isCurrentUserMessageLine(line, historyNotBeforeMs) {
+  if (!Number.isFinite(historyNotBeforeMs)) return true;
+  try {
+    const event = JSON.parse(line);
+    const timestamp = Date.parse(event?.timestamp || "");
+    return Number.isFinite(timestamp) && timestamp >= historyNotBeforeMs;
+  } catch {
+    return false;
+  }
+}
+
 module.exports = {
+  classifySessionMetadata,
+  getUserMessageTurnId,
+  isCurrentUserMessageLine,
   isHistoricalSessionCompletion,
   isHistoricalSessionRequest,
-  parseUserMessageLine,
+  parseSessionMetadata,
   parseRequestUserInputLine,
+  parseUserMessageLine,
   cleanUserPrompt,
   parseTaskCompleteLine,
   parseTimestampMs

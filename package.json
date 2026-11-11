@@ -167,11 +167,13 @@
   },
   "scripts": {
     "check": "node ./scripts/validate-release.js",
-    "lint": "eslint extension.js scripts/*.js",
+    "lint": "eslint extension.js session-events.js remote-events.js remote-paths.js scripts/*.js remote/extension.js remote/session-tailer.js",
     "ci": "npm run check && npm run lint && npm test && npm run package:test",
     "package:test": "node ./scripts/test-vsix.js",
+    "package:remote": "cd remote && npm exec --yes @vscode/vsce -- package",
+    "sync:remote": "node ./scripts/sync-remote-shared.js",
     "release:check": "npm run check && npm run lint && npm test && npm run package:test",
-    "test": "node ./scripts/test-session-events.js && node ./scripts/test-toast-focus.js"
+    "test": "node ./scripts/sync-remote-shared.js && node ./scripts/test-session-events.js && node ./scripts/test-toast-focus.js && node ./scripts/test-remote-paths.js && node ./scripts/test-remote-agent.js && node ./scripts/test-remote-events.js"
   },
   "devDependencies": {
     "adm-zip": "^0.5.16",

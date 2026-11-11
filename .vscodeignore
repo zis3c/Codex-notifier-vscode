@@ -11,5 +11,6 @@ codex-done.ps1
 README.md
 .github/**
 scripts/**
+remote/**
 .eslintrc.cjs
 package-lock.json

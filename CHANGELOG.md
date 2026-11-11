@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+- Fixed excessive Remote SSH bandwidth usage by moving Codex session-log tailing onto the SSH host. A new `Codex Notifier Remote` workspace extension tails JSONL files locally and emits small event records; the local UI extension no longer reads whole session transcripts through `vscode.workspace.fs`.
+- The local extension now reads only bounded event files from `~/.codex/codex-notifier-events` (or next to `codexNotifier.remoteSessionsPath`).
+- Added tests for the remote tailer and the local event bridge.
+- Thanks to [TheGhostFish](https://github.com/TheGhostFish) for reporting [issue #8](https://github.com/zis3c/Codex-notifier-vscode/issues/8).
+
 ## [0.1.12] - 2026-08-28
 
 - Fixed Windows toast clicks defaulting to a new VS Code window. Existing-window focus now enables automatically, so toast activation uses the `codex-notifier://` helper instead of VS Code's default launcher.

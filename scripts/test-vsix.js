@@ -28,6 +28,8 @@ function main() {
     "extension/package.json",
     "extension/extension.js",
     "extension/session-events.js",
+    "extension/remote-events.js",
+    "extension/remote-paths.js",
     "extension/toast-focus.js",
     "extension/windows-toast-focus.ps1",
     "extension/windows-toast-focus.vbs"
@@ -49,7 +51,45 @@ function main() {
     throw new Error(`VSIX package version mismatch. Expected ${pkg.version}, found ${manifestJson.version}`);
   }
 
+  if ([...entries].some((entry) => entry.startsWith("extension/remote/"))) {
+    throw new Error("The UI VSIX must not bundle the remote companion.");
+  }
+
   console.log("VSIX smoke test passed.");
+
+  checkRemoteVsix(root, outDir);
+}
+
+function checkRemoteVsix(root, outDir) {
+  const remoteRoot = path.join(root, "remote");
+  const remotePkg = JSON.parse(fs.readFileSync(path.join(remoteRoot, "package.json"), "utf8"));
+  const remoteOut = path.join(outDir, `codex-notifier-remote-${remotePkg.version}.vsix`);
+
+  runNpm(["exec", "--yes", "@vscode/vsce", "--", "package", "--out", remoteOut], remoteRoot);
+
+  const zip = new AdmZip(remoteOut);
+  const entries = new Set(zip.getEntries().map((entry) => entry.entryName));
+  const required = [
+    "extension.vsixmanifest",
+    "extension/package.json",
+    "extension/extension.js",
+    "extension/session-tailer.js",
+    "extension/session-events.js",
+    "extension/remote-paths.js"
+  ];
+
+  for (const entry of required) {
+    if (!entries.has(entry)) {
+      throw new Error(`Missing remote VSIX entry: ${entry}`);
+    }
+  }
+
+  const manifest = JSON.parse(zip.getEntry("extension/package.json").getData().toString("utf8"));
+  if (manifest.name !== "codex-notifier-remote") {
+    throw new Error(`Unexpected remote extension name: ${manifest.name}`);
+  }
+
+  console.log("Remote VSIX smoke test passed.");
 }
 
 main();
