@@ -5,13 +5,23 @@ const os = require("os");
 const path = require("path");
 const { execFile } = require("child_process");
 const {
+  classifySessionMetadata,
+  getUserMessageTurnId,
+  isCurrentUserMessageLine,
   isHistoricalSessionCompletion,
   isHistoricalSessionRequest,
+  parseSessionMetadata,
   parseUserMessageLine,
   parseRequestUserInputLine,
   parseTaskCompleteLine
 } = require("./session-events");
 const { buildToastFocusLaunchUri } = require("./toast-focus");
+const { createRemoteEventBridge } = require("./remote-events");
+const {
+  inferRemoteHomePath,
+  resolveRemoteSessionsPath,
+  resolveRemoteEventsPath
+} = require("./remote-paths");
 const extensionVersion = require("./package.json").version;
 
 /**
@@ -37,6 +47,11 @@ let codexInputRequestTurnIds = new Set();
 let codexSessionInfo = new Map();
 let statusItem = null;
 let statusTimer = null;
+let remoteEventBridges = [];
+let remoteEventsProcessed = 0;
+let lastRemoteEventAt = 0;
+let remoteCompanionHintScheduled = false;
+let remotePathHintShown = false;
 
 function claimNotification(key) {
   const digest = crypto.createHash("sha256").update(String(key)).digest("hex");
@@ -346,32 +361,6 @@ function getSessionWindowOwner(sessionId, turnId = "") {
   }
 }
 
-function getUserMessageTurnId(line) {
-  try {
-    const event = JSON.parse(line);
-    if (event?.type === "event_msg" && event.payload?.type === "user_message") {
-      return String(event.payload.turn_id || "");
-    }
-    if (event?.type === "response_item" && event.payload?.type === "message" && event.payload.role === "user") {
-      return String(event.payload.internal_chat_message_metadata_passthrough?.turn_id || event.payload.turn_id || "");
-    }
-  } catch {
-    return "";
-  }
-  return "";
-}
-
-function isCurrentSessionUserMessage(line, historyNotBeforeMs) {
-  if (!Number.isFinite(historyNotBeforeMs)) return true;
-  try {
-    const event = JSON.parse(line);
-    const timestamp = Date.parse(event?.timestamp || "");
-    return Number.isFinite(timestamp) && timestamp >= historyNotBeforeMs;
-  } catch {
-    return false;
-  }
-}
-
 function installWindowsToastFocusHelper(context) {
   return new Promise((resolve, reject) => {
     if (process.platform !== "win32") {
@@ -614,22 +603,108 @@ function stopCodexLogWatcher() {
   codexSessionInfo.clear();
 }
 
-function inferRemoteHomePath(uriPath) {
-  const parts = String(uriPath || "").replace(/^\/+/, "").split("/").filter(Boolean);
-  if (parts.length === 0) return null;
-  if (parts[0].toLowerCase() === "root") return "/root";
-  if ((parts[0].toLowerCase() === "home" || parts[0].toLowerCase() === "users") && parts[1]) {
-    return `/${parts[0]}/${parts[1]}`;
+function stopRemoteEventBridges() {
+  for (const bridge of remoteEventBridges) bridge.stop();
+  remoteEventBridges = [];
+}
+
+async function handleRemoteEvent(event) {
+  if (!event || typeof event !== "object") return;
+  const sessionId = String(event.sessionId || "");
+  const sessionCwd = String(event.sessionCwd || "");
+  const at = Number.isFinite(event.at) ? event.at : Date.now();
+
+  if (event.kind === "user_message") {
+    recordFocusedSessionOwner(sessionId, getFocusedWindowAt(at), at, String(event.turnId || ""));
+    return;
   }
-  if (/^[a-zA-Z]:$/.test(parts[0]) && parts[1]) {
-    if (parts[1].toLowerCase() === "users" && parts[2]) {
-      return `/${parts[0]}/${parts[1]}/${parts[2]}`;
-    }
-    if (parts[1].toLowerCase() === "home" && parts[2]) {
-      return `/${parts[0]}/${parts[1]}/${parts[2]}`;
-    }
+
+  const waitingForInput = event.kind === "input";
+  if (event.kind !== "complete" && !waitingForInput) return;
+
+  const turnId = String(event.turnId || event.callId || "");
+  if (!sessionId && !turnId) return;
+
+  remoteEventsProcessed += 1;
+  lastRemoteEventAt = at;
+
+  if (waitingForInput) {
+    const requestKey = `${sessionId || "remote"}:${turnId}`;
+    if (codexInputRequestTurnIds.has(requestKey)) return;
+    codexInputRequestTurnIds.add(requestKey);
+  } else if (codexCompletedTurnIds.has(turnId)) {
+    return;
+  } else {
+    codexCompletedTurnIds.add(turnId);
   }
-  return null;
+
+  const prompt = String(event.prompt || "");
+  lastCodexNotifyAt = Date.now();
+  await notify("complete", waitingForInput ? "Codex is waiting for your input." : "Codex has finished responding.", {
+    mode: "auto",
+    turnId,
+    sessionCwd,
+    toastMessage: formatSessionNotification("complete", prompt, waitingForInput),
+    waitingForInput,
+    toastWindowSessionId: getSessionWindowOwner(sessionId, turnId),
+    workspaceMatch: isSessionInCurrentWorkspace({ cwd: sessionCwd }),
+    dedupeKey: waitingForInput
+      ? `input:${sessionId || "remote"}:${turnId}`
+      : `complete:${sessionId || "remote"}:${turnId}`
+  });
+}
+
+// In a Remote SSH window, session logs are read on the remote host by the
+// Codex Notifier Remote companion. This extension only consumes its tiny
+// event files, so JSONL transcripts never cross the SSH connection.
+function startRemoteEventBridges() {
+  stopRemoteEventBridges();
+  if (!isRemoteWorkspace()) return;
+  if (!getConfig().get("monitorCodexLog", true)) return;
+
+  const roots = getRemoteEventRoots();
+  if (roots.length === 0) {
+    const configuredPath = String(getConfig().get("remoteSessionsPath", "") || "").trim();
+    if (getRemoteSourceUris().length > 0 && !remotePathHintShown) {
+      remotePathHintShown = true;
+      vscode.window.showWarningMessage(
+        configuredPath
+          ? "Codex Notifier: codexNotifier.remoteSessionsPath must be an absolute remote POSIX path."
+          : "Codex Notifier: set codexNotifier.remoteSessionsPath to the absolute remote sessions directory for this workspace layout."
+      );
+    }
+    return;
+  }
+
+  for (const dirUri of roots) {
+    const bridge = createRemoteEventBridge({
+      vscode,
+      dirUri,
+      onEvent: handleRemoteEvent
+    });
+    remoteEventBridges.push(bridge);
+    bridge.start();
+  }
+
+  if (!remoteCompanionHintScheduled) {
+    remoteCompanionHintScheduled = true;
+    const timer = setTimeout(async () => {
+      try {
+        await vscode.workspace.fs.stat(vscode.Uri.joinPath(roots[0], "agent.json"));
+      } catch {
+        vscode.window.showWarningMessage(
+          "Codex Notifier: install the Codex Notifier Remote extension on the SSH host to keep remote notifications working."
+        );
+      }
+    }, 20000);
+    if (typeof timer.unref === "function") timer.unref();
+  }
+}
+
+function isRemoteWorkspace() {
+  if (vscode.env.remoteName) return true;
+  return (vscode.workspace.workspaceFolders || [])
+    .some((folder) => String(folder.uri.scheme || "").startsWith("vscode-remote"));
 }
 
 function getRemoteSourceUris() {
@@ -641,16 +716,20 @@ function getRemoteSourceUris() {
   return sourceUris.filter((uri) => uri?.scheme === "vscode-remote");
 }
 
-function getRemoteSessionRoots() {
+// The remote companion stores small event files next to the Codex data
+// directory, for example ~/.codex/codex-notifier-events.
+function getRemoteEventRoots() {
   const configuredPath = String(getConfig().get("remoteSessionsPath", "") || "").trim();
   const roots = [];
   const seen = new Set();
   for (const uri of getRemoteSourceUris()) {
-    const sessionsPath = configuredPath
-      ? configuredPath
-      : `${inferRemoteHomePath(uri.path) || ""}/.codex/sessions`;
-    if (!sessionsPath.startsWith("/")) continue;
-    const root = uri.with({ path: sessionsPath, query: "", fragment: "" });
+    const sessionsPath = resolveRemoteSessionsPath({
+      configuredPath,
+      homePath: inferRemoteHomePath(uri.path)
+    });
+    const eventsPath = resolveRemoteEventsPath(sessionsPath);
+    if (!eventsPath) continue;
+    const root = uri.with({ path: eventsPath, query: "", fragment: "" });
     const key = root.toString();
     if (!seen.has(key)) {
       seen.add(key);
@@ -715,62 +794,11 @@ function findLocalCodexSessionFiles() {
   return candidates;
 }
 
-async function remoteDirectoriesAt(root) {
-  try {
-    return (await vscode.workspace.fs.readDirectory(root))
-      .filter(([, type]) => type === vscode.FileType.Directory)
-      .map(([name]) => name)
-      .sort();
-  } catch {
-    return [];
-  }
-}
-
-async function findRemoteCodexSessionFiles() {
-  const candidates = [];
-  for (const root of getRemoteSessionRoots()) {
-    for (const year of (await remoteDirectoriesAt(root))) {
-      const yearDir = vscode.Uri.joinPath(root, year);
-      for (const month of (await remoteDirectoriesAt(yearDir))) {
-        const monthDir = vscode.Uri.joinPath(yearDir, month);
-        for (const day of (await remoteDirectoriesAt(monthDir))) {
-          const dayDir = vscode.Uri.joinPath(monthDir, day);
-          let entries = [];
-          try {
-            entries = await vscode.workspace.fs.readDirectory(dayDir);
-          } catch {
-            continue;
-          }
-          for (const [name, type] of entries) {
-            if (type !== vscode.FileType.File || !name.endsWith(".jsonl")) continue;
-            const uri = vscode.Uri.joinPath(dayDir, name);
-            try {
-              const stat = await vscode.workspace.fs.stat(uri);
-              candidates.push({
-                key: `remote-session:${uri.toString()}`,
-                kind: "remote",
-                uri,
-                mtimeMs: stat.mtime
-              });
-            } catch {
-              // File may be rotated between listing and stat.
-            }
-          }
-        }
-      }
-    }
-  }
-  return candidates;
-}
-
 async function findAllCodexSessionFiles() {
   const now = Date.now();
   if (now - codexLogFilesCacheAt < 5000) return codexLogFilesCache;
 
-  const remoteRoots = getRemoteSessionRoots();
-  const candidates = remoteRoots.length > 0
-    ? await findRemoteCodexSessionFiles()
-    : findLocalCodexSessionFiles();
+  const candidates = findLocalCodexSessionFiles();
 
   candidates.sort((a, b) => b.mtimeMs - a.mtimeMs);
   // Existing chats can be resumed after many newer sessions were created.
@@ -781,16 +809,34 @@ async function findAllCodexSessionFiles() {
   return codexLogFilesCache;
 }
 
+function getRemoteEventDiagnostics() {
+  return {
+    remoteEventRoots: getRemoteEventRoots().map((uri) => uri.toString()),
+    remoteEventBridges: remoteEventBridges.length,
+    remoteEventsProcessed,
+    lastRemoteEventAt: fmtTs(lastRemoteEventAt)
+  };
+}
+
 async function getDetailedDiagnosticsSummary() {
   const summary = getDiagnosticsSummary();
+  if (isRemoteWorkspace()) {
+    return {
+      ...summary,
+      ...getRemoteEventDiagnostics(),
+      extensionVersion,
+      architecture: "remote-event-bridge"
+    };
+  }
+
   try {
     codexLogFilesCacheAt = 0;
     const sources = await findAllCodexSessionFiles();
     return {
       ...summary,
       extensionVersion,
-      architecture: "single-ui-extension",
-      remoteSessionRoots: getRemoteSessionRoots().map((uri) => uri.toString()),
+      architecture: "local-ui-extension",
+      ...getRemoteEventDiagnostics(),
       localSessionRoots: getLocalSessionRoots(),
       detectedSessionSources: sources.map((source) => source.key),
       eligibleSessionSources: sources
@@ -806,9 +852,9 @@ async function getDetailedDiagnosticsSummary() {
   } catch (error) {
     return {
       ...summary,
+      ...getRemoteEventDiagnostics(),
       extensionVersion,
-      architecture: "single-ui-extension",
-      remoteSessionRoots: getRemoteSessionRoots().map((uri) => uri.toString()),
+      architecture: "local-ui-extension",
       localSessionRoots: getLocalSessionRoots(),
       detectedSessionSources: [],
       sessionDiscoveryError: String(error?.stack || error)
@@ -817,20 +863,10 @@ async function getDetailedDiagnosticsSummary() {
 }
 
 async function getCodexSessionStat(source) {
-  if (source.kind === "remote") {
-    const stat = await vscode.workspace.fs.stat(source.uri);
-    return { size: stat.size };
-  }
-  const stat = fs.statSync(source.file);
-  return { size: stat.size };
+  return { size: fs.statSync(source.file).size };
 }
 
 async function readCodexSessionChunk(source, offset, size) {
-  if (source.kind === "remote") {
-    const bytes = await vscode.workspace.fs.readFile(source.uri);
-    return Buffer.from(bytes).subarray(offset, size).toString("utf8");
-  }
-
   const fd = fs.openSync(source.file, "r");
   try {
     const length = size - offset;
@@ -842,26 +878,6 @@ async function readCodexSessionChunk(source, offset, size) {
   }
 }
 
-function parseSessionMetadata(text) {
-  const newline = text.indexOf("\n");
-  const firstLine = newline >= 0 ? text.slice(0, newline) : text;
-  try {
-    const event = JSON.parse(firstLine);
-    return event?.type === "session_meta" ? event.payload : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-function classifySessionMetadata(metadata) {
-  if (metadata?.originator !== "codex_vscode") {
-    return { eligible: false, reason: "non-vscode-originator" };
-  }
-  if (metadata?.source !== "vscode" || metadata?.thread_source === "subagent") {
-    return { eligible: false, reason: "subagent-or-internal-session" };
-  }
-  return { eligible: true, reason: "top-level-vscode-session" };
-}
 
 function parseSessionPrompt(text) {
   let latestPrompt = "";
@@ -947,7 +963,7 @@ async function processCodexSessionChunk(chunk, source, sessionInfo, sourceSize, 
 
   for (const line of lines) {
     const userMessage = parseUserMessageLine(line);
-    if (userMessage && isCurrentSessionUserMessage(line, historyNotBeforeMs)) {
+    if (userMessage && isCurrentUserMessageLine(line, historyNotBeforeMs)) {
       let ownerWindowSessionId = "";
       let eventTimestampMs = 0;
       const userTurnId = getUserMessageTurnId(line);
@@ -1035,6 +1051,7 @@ function startCodexLogWatcher() {
 
   const cfg = getConfig();
   if (!cfg.get("monitorCodexLog", true)) return;
+  if (isRemoteWorkspace()) return;
 
   const pollMsRaw = cfg.get("codexLogPollMs", 700);
   const pollMs = Number.isFinite(pollMsRaw) ? Math.max(300, pollMsRaw) : 700;
@@ -1427,7 +1444,9 @@ function activate(context) {
       Object.entries(summary).forEach(([k, v]) => out.appendLine(`${k}: ${v}`));
       out.show(true);
       vscode.window.showInformationMessage(
-        `Codex Notifier: sessions=${summary.trackedSessionFiles} completed=${summary.completedTurnIds} lastNotify=${summary.lastNotifyAt}`
+        summary.architecture === "remote-event-bridge"
+          ? `Codex Notifier: remote events=${summary.remoteEventsProcessed} completed=${summary.completedTurnIds} lastNotify=${summary.lastNotifyAt}`
+          : `Codex Notifier: sessions=${summary.trackedSessionFiles} completed=${summary.completedTurnIds} lastNotify=${summary.lastNotifyAt}`
       );
       return summary;
     })
@@ -1445,6 +1464,7 @@ function activate(context) {
         startWatcher(context);
         startCodexDocumentWatcher(context);
         startCodexLogWatcher();
+        startRemoteEventBridges();
       }
     })
   );
@@ -1453,6 +1473,7 @@ function activate(context) {
     vscode.workspace.onDidChangeWorkspaceFolders(() => {
       startWatcher(context);
       startCodexLogWatcher();
+      startRemoteEventBridges();
     })
   );
 
@@ -1461,6 +1482,7 @@ function activate(context) {
   startWatcher(context);
   startCodexDocumentWatcher(context);
   startCodexLogWatcher();
+  startRemoteEventBridges();
   void maybeShowPostUpdateReloadHint(context);
   logDebug("activated");
 }
@@ -1470,6 +1492,7 @@ function deactivate() {
   stopWatcher();
   stopCodexDocumentWatcher();
   stopCodexLogWatcher();
+  stopRemoteEventBridges();
   if (statusTimer) {
     clearTimeout(statusTimer);
     statusTimer = null;

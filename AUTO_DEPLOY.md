@@ -15,18 +15,20 @@ npm run ci
 
 ```bash
 npm exec --yes -- @vscode/vsce package --out codex-notifier-private.vsix
+npm run package:remote
 ```
 
 1. Commit and push source to GitHub.
 1. Share `.vsix` via:
    - GitHub Release asset (recommended)
    - or repository file (optional)
+   - publish the remote companion as `codex-notifier-remote-<version>.vsix`
 
 ## Recommended GitHub Release Flow
 
 1. Create tag (example `v0.0.2`).
 1. Open GitHub `Releases` -> `Draft a new release`.
-1. Upload `codex-notifier-private.vsix`.
+1. Upload `codex-notifier-private.vsix` and `codex-notifier-remote-<version>.vsix`.
 1. Publish release notes.
 
 ## Optional Future Automation

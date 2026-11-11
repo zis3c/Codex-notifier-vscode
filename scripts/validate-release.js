@@ -34,6 +34,20 @@ function assertPackageJson() {
   }
 }
 
+function assertRemotePackageJson() {
+  const packagePath = path.join(root, "remote", "package.json");
+  const raw = fs.readFileSync(packagePath, "utf8");
+  const pkg = JSON.parse(raw);
+
+  if (!pkg.main) {
+    throw new Error("remote/package.json: missing main entry.");
+  }
+
+  if (!Array.isArray(pkg.extensionKind) || pkg.extensionKind[0] !== "workspace") {
+    throw new Error("remote/package.json: extensionKind must prefer the remote workspace host.");
+  }
+}
+
 function main() {
   assertExists("README.md");
   assertExists("LICENSE");
@@ -41,7 +55,13 @@ function main() {
   assertExists("CHANGELOG.md");
   assertExists("SECURITY.md");
   assertExists("extension.js");
+  assertExists("remote-events.js");
+  assertExists("remote-paths.js");
+  assertExists("remote/package.json");
+  assertExists("remote/extension.js");
+  assertExists("remote/session-tailer.js");
   assertPackageJson();
+  assertRemotePackageJson();
   console.log("Release validation passed.");
 }
 

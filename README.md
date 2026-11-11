@@ -39,7 +39,7 @@ A lightweight VS Code extension that notifies you when Codex responses finish or
 - Windows toast click focus for the exact VS Code window that owns the prompt,
   including multiple windows using the same existing Codex chat.
 - Manual trigger support through `.codex-notify` and `codex-done.ps1`.
-- Remote SSH workspace support: notifications and sounds run locally while relative trigger files are watched on the remote host.
+- Remote SSH workspace support: notifications and sounds run locally while a companion extension reads session logs on the SSH host and sends tiny event records, so transcripts never cross the connection.
 
 ## Commands
 
@@ -100,12 +100,22 @@ On Windows, v0.1.12 enables toast window focus automatically. The extension reco
 
 ### Remote SSH Workspaces
 
-Codex Notifier remains a single extension running in VS Code's local UI
-extension host, so sounds and notifications are produced on your computer. In a
-Remote SSH window it reads `~/.codex/sessions/**/*.jsonl` through VS Code's
-remote file-system API and reacts to authoritative `task_complete` and
-`request_user_input` events.
-Guardian and subagent sessions are ignored, because their intermediate
+Notifications and sounds stay on your computer. Session logs are read on the
+SSH host by the lightweight **Codex Notifier Remote** companion, so JSONL
+transcripts never cross the SSH connection. The companion writes small event
+files under `~/.codex/codex-notifier-events` (or next to a configured
+`codexNotifier.remoteSessionsPath`), and the local extension consumes and
+deletes them.
+
+Install both extensions in a Remote SSH window:
+
+1. Install **Codex Notifier** locally (this extension).
+2. Install **Codex Notifier Remote** on the SSH host. In the Extensions view,
+   choose **Install in SSH: <host>** for `zis3c.codex-notifier-remote`.
+3. Reload the remote window.
+
+The companion reacts to authoritative `task_complete` and `request_user_input`
+events. Guardian and subagent sessions are ignored, because their intermediate
 `task_complete` events do not mean the user's top-level task has finished.
 `request_user_input` events mean Codex is waiting for the user to answer, so
 they should notify immediately.
@@ -117,7 +127,8 @@ The default relative trigger path (`.codex-notify`) is watched through VS Code's
 
 The remote home directory is inferred from the workspace URI. For unusual
 layouts, set `codexNotifier.remoteSessionsPath` to the absolute remote sessions
-directory.
+directory. Remote SSH to Linux and macOS hosts is supported; Windows SSH hosts
+are not covered yet.
 
 ## Recommended Settings
 
@@ -195,7 +206,13 @@ codex-notifier-vscode/
 |- package-lock.json             # Locked npm dependency tree
 |- package.json                  # VS Code extension manifest and settings
 |- extension.js                  # Core runtime, watchers, and notifications
+|- remote-events.js              # Local consumer for remote companion events
+|- remote-paths.js               # Shared remote path resolution
 |- session-events.js             # Codex JSONL event parsing helpers
+|- remote/
+|  |- package.json              # Remote companion extension manifest
+|  |- extension.js              # Remote companion activation and event output
+|  `- session-tailer.js         # Remote-local JSONL tailer
 |- toast-focus.js                # Toast protocol payload builder
 |- windows-toast-focus.ps1       # Windows native window focus helper
 |- windows-toast-focus.vbs       # Hidden Windows helper launcher
@@ -205,6 +222,10 @@ codex-notifier-vscode/
 |- scripts/
 |  |- test-session-events.js     # Session event tests
 |  |- test-toast-focus.js        # Toast payload tests
+|  |- test-remote-paths.js       # Remote path tests
+|  |- test-remote-agent.js       # Remote tailer tests
+|  |- test-remote-events.js      # Remote bridge tests
+|  |- sync-remote-shared.js      # Copies shared files into remote/
 |  |- test-vsix.js               # VSIX smoke test
 |  `- validate-release.js        # Release validation checks
 `- codex-notifier-private.vsix   # Locally built install artifact

@@ -28,7 +28,11 @@ jobs:
         shell: pwsh
 
       - name: Syntax check
-        run: node --check extension.js
+        run: |
+          node --check extension.js
+          node --check remote/extension.js
+          node --check remote/session-tailer.js
+          node --check remote-events.js
         shell: pwsh
 
       - name: Release validation

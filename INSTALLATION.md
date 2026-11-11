@@ -87,17 +87,20 @@ For safer auto-detection defaults:
 
 ## Remote SSH
 
-- Install the extension in the local VS Code UI. It is declared as a UI extension so notifications and sound play on the computer running VS Code.
+- Install **Codex Notifier** in the local VS Code UI. It is declared as a UI extension so notifications and sound play on the computer running VS Code.
+- Install **Codex Notifier Remote** on the SSH host. In the Extensions view, choose **Install in SSH: <host>** for `zis3c.codex-notifier-remote`, then reload the remote window.
 - Open the remote folder with **Remote - SSH** as usual.
 - Keep `codexNotifier.watchFilePath` relative (the default is `.codex-notify`) to watch the trigger file on the SSH host.
 - Absolute trigger and custom sound paths refer to the local computer.
-- The same local extension reads remote `~/.codex/sessions/**/*.jsonl` files
-  through the Remote SSH file-system provider and watches `task_complete`
-  plus `request_user_input`.
+- The remote companion reads `~/.codex/sessions/**/*.jsonl` on the SSH host and
+  writes small event files to `~/.codex/codex-notifier-events`. The local
+  extension consumes those events, so session transcripts never cross SSH.
 - For nonstandard home layouts, configure the absolute remote path in
   `codexNotifier.remoteSessionsPath`.
-- Run `Codex Notifier: Show Diagnostics` to confirm that remote session sources
-  were discovered.
+- Remote SSH to Linux and macOS hosts is supported. Windows SSH hosts are not
+  covered yet.
+- Run `Codex Notifier: Show Diagnostics` to confirm the remote event roots and
+  that events are being processed.
 - Remote live behavior still needs manual smoke testing. There is no automated
   Remote SSH end-to-end test in CI yet.
 
