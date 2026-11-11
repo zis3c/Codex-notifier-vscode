@@ -75,6 +75,11 @@
           "default": false,
           "description": "Show completion/test notifications as banner popups. When false, completion/test use quiet status bar only."
         },
+        "codexNotifier.alwaysSystemNotify": {
+          "type": "boolean",
+          "default": false,
+          "description": "On Windows, show system notifications even while VS Code is focused. Requires Enable Popup; overrides Toast When Unfocused. Other platforms retain their existing behavior."
+        },
         "codexNotifier.toastWhenUnfocused": {
           "type": "boolean",
           "default": true,
@@ -167,13 +172,13 @@
   },
   "scripts": {
     "check": "node ./scripts/validate-release.js",
-    "lint": "eslint extension.js session-events.js remote-events.js remote-paths.js scripts/*.js remote/extension.js remote/session-tailer.js",
+    "lint": "eslint extension.js session-events.js remote-events.js remote-paths.js notification-policy.js scripts/*.js remote/extension.js remote/session-tailer.js",
     "ci": "npm run check && npm run lint && npm test && npm run package:test",
     "package:test": "node ./scripts/test-vsix.js",
     "package:remote": "cd remote && npm exec --yes @vscode/vsce -- package",
     "sync:remote": "node ./scripts/sync-remote-shared.js",
     "release:check": "npm run check && npm run lint && npm test && npm run package:test",
-    "test": "node ./scripts/sync-remote-shared.js && node ./scripts/test-session-events.js && node ./scripts/test-toast-focus.js && node ./scripts/test-remote-paths.js && node ./scripts/test-remote-agent.js && node ./scripts/test-remote-events.js"
+    "test": "node ./scripts/sync-remote-shared.js && node ./scripts/test-session-events.js && node ./scripts/test-toast-focus.js && node ./scripts/test-notification-policy.js && node ./scripts/test-remote-paths.js && node ./scripts/test-remote-agent.js && node ./scripts/test-remote-events.js"
   },
   "devDependencies": {
     "adm-zip": "^0.5.16",

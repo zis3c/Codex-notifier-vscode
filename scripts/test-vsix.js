@@ -30,6 +30,7 @@ function main() {
     "extension/session-events.js",
     "extension/remote-events.js",
     "extension/remote-paths.js",
+    "extension/notification-policy.js",
     "extension/toast-focus.js",
     "extension/windows-toast-focus.ps1",
     "extension/windows-toast-focus.vbs"
