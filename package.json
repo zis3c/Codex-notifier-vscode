@@ -12,7 +12,8 @@
     "Other"
   ],
   "activationEvents": [
-    "onStartupFinished"
+    "onStartupFinished",
+    "onUri"
   ],
   "extensionKind": [
     "ui"
@@ -88,7 +89,7 @@
         "codexNotifier.focusExistingWindowOnToast": {
           "type": "boolean",
           "default": true,
-          "description": "On Windows, make toast clicks focus a matching existing VS Code workspace window. The helper registers automatically."
+          "description": "Focus an existing VS Code window when a system notification is clicked. On Windows, matches the owning workspace. On macOS, requires terminal-notifier and focuses the window that sent the notification."
         },
         "codexNotifier.popupDurationMs": {
           "type": "number",
@@ -172,13 +173,13 @@
   },
   "scripts": {
     "check": "node ./scripts/validate-release.js",
-    "lint": "eslint extension.js session-events.js remote-events.js remote-paths.js notification-policy.js scripts/*.js remote/extension.js remote/session-tailer.js",
+    "lint": "eslint extension.js macos-notification.js session-events.js remote-events.js remote-paths.js notification-policy.js scripts/*.js remote/extension.js remote/session-tailer.js pending-async-input.js",
     "ci": "npm run check && npm run lint && npm test && npm run package:test",
     "package:test": "node ./scripts/test-vsix.js",
     "package:remote": "cd remote && npm exec --yes @vscode/vsce -- package",
     "sync:remote": "node ./scripts/sync-remote-shared.js",
     "release:check": "npm run check && npm run lint && npm test && npm run package:test",
-    "test": "node ./scripts/sync-remote-shared.js && node ./scripts/test-session-events.js && node ./scripts/test-toast-focus.js && node ./scripts/test-notification-policy.js && node ./scripts/test-remote-paths.js && node ./scripts/test-remote-agent.js && node ./scripts/test-remote-events.js"
+    "test": "node ./scripts/sync-remote-shared.js && node ./scripts/test-session-events.js && node ./scripts/test-toast-focus.js && node ./scripts/test-macos-notification.js && node ./scripts/test-notification-policy.js && node ./scripts/test-remote-paths.js && node ./scripts/test-remote-agent.js && node ./scripts/test-remote-events.js && node ./scripts/test-pending-async-input.js"
   },
   "devDependencies": {
     "adm-zip": "^0.5.16",
