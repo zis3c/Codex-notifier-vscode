@@ -60,13 +60,13 @@ function parseUserMessageLine(line) {
 }
 
 function parseRequestUserInputLine(line) {
-  if (!line.includes('"request_user_input"')) return undefined;
+  if (!line.includes('"request_user_input"') && !line.includes('"request_user_input_async"')) return undefined;
   try {
     const event = JSON.parse(line);
     if (event?.type !== "response_item" || event.payload?.type !== "function_call") {
       return undefined;
     }
-    if (event.payload.name !== "request_user_input") {
+    if (!["request_user_input", "request_user_input_async"].includes(event.payload.name)) {
       return undefined;
     }
     let argumentsPayload;
@@ -80,7 +80,9 @@ function parseRequestUserInputLine(line) {
     }
     const questions = argumentsPayload?.questions;
     if (!Array.isArray(questions) || !questions.some((question) => (
-      question && typeof question.question === "string" && question.question.trim()
+      question && [question.question, question.title].some(
+        (text) => typeof text === "string" && text.trim()
+      )
     ))) {
       return undefined;
     }

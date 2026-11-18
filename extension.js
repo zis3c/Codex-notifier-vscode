@@ -23,6 +23,8 @@ const {
   resolveRemoteEventsPath
 } = require("./remote-paths");
 const { shouldSendSystemNotification } = require("./notification-policy");
+const { PendingAsyncInputTracker } = require("./pending-async-input");
+const { buildMacOSFocusUri, showMacOSNotification } = require("./macos-notification");
 const extensionVersion = require("./package.json").version;
 
 /**
@@ -45,6 +47,7 @@ let codexLogPollBusy = false;
 let codexLogWatcherStartedAt = 0;
 let codexCompletedTurnIds = new Set();
 let codexInputRequestTurnIds = new Set();
+const codexPendingAsyncInput = new PendingAsyncInputTracker();
 let codexSessionInfo = new Map();
 let statusItem = null;
 let statusTimer = null;
@@ -185,11 +188,7 @@ function showSystemNotification(title, message, launchUri = "") {
     }
 
     if (process.platform === "darwin") {
-      execFile(
-        "osascript",
-        ["-e", `display notification ${JSON.stringify(message)} with title ${JSON.stringify(title)}`],
-        () => resolve()
-      );
+      void showMacOSNotification(title, message, launchUri).then(resolve, resolve);
       return;
     }
 
@@ -528,12 +527,21 @@ async function notify(kind, message, _options = {}) {
     : _options.waitingForInput || message.startsWith("Codex is waiting") || message.startsWith("Needs your input")
       ? "Codex needs your input"
       : "Codex task complete";
-  const launchUri = focusExistingWindowOnToast
-    ? buildToastFocusLaunchUri({
-      ...getToastFocusTarget(_options.sessionCwd || ""),
-      windowSessionId: _options.toastWindowSessionId || getWindowSessionId()
-    })
-    : "";
+  let launchUri = "";
+  if (focusExistingWindowOnToast) {
+    if (process.platform === "darwin") {
+      try {
+        launchUri = await buildMacOSFocusUri(vscode, _options.threadId || "");
+      } catch {
+        // Deep-link failure must never prevent the notification from appearing.
+      }
+    } else if (process.platform === "win32") {
+      launchUri = buildToastFocusLaunchUri({
+        ...getToastFocusTarget(_options.sessionCwd || ""),
+        windowSessionId: _options.toastWindowSessionId || getWindowSessionId()
+      });
+    }
+  }
 
   if (enablePopup) {
     if (kind === "error") {
@@ -607,6 +615,7 @@ function stopCodexLogWatcher() {
   codexLogWatcherStartedAt = 0;
   codexCompletedTurnIds.clear();
   codexInputRequestTurnIds.clear();
+  codexPendingAsyncInput.clear();
   codexSessionInfo.clear();
 }
 
@@ -649,6 +658,7 @@ async function handleRemoteEvent(event) {
   lastCodexNotifyAt = Date.now();
   await notify("complete", waitingForInput ? "Codex is waiting for your input." : "Codex has finished responding.", {
     mode: "auto",
+    threadId: sessionId,
     turnId,
     sessionCwd,
     toastMessage: formatSessionNotification("complete", prompt, waitingForInput),
@@ -888,10 +898,19 @@ async function readCodexSessionChunk(source, offset, size) {
 
 function parseSessionPrompt(text) {
   let latestPrompt = "";
+
   for (const line of text.split(/\r?\n/)) {
     const prompt = parseUserMessageLine(line);
-    if (prompt) latestPrompt = prompt;
+
+    // Ignore internal replies to asynchronous Codex questions.
+    if (
+      prompt &&
+      !/^\s*<send_user_message_question_reply>/.test(prompt)
+    ) {
+      latestPrompt = prompt;
+    }
   }
+
   return latestPrompt;
 }
 
@@ -964,6 +983,7 @@ function isSessionInCurrentWorkspace(sessionInfo) {
 
 async function processCodexSessionChunk(chunk, source, sessionInfo, sourceSize, historyNotBeforeMs, workspaceMatch) {
   const sourceKey = source.key;
+  const sessionKey = sessionInfo.sessionId || sourceKey;
   const combined = (codexLogRemainders.get(sourceKey) || "") + chunk;
   const lines = combined.split(/\r?\n/);
   codexLogRemainders.set(sourceKey, lines.pop() || "");
@@ -971,6 +991,9 @@ async function processCodexSessionChunk(chunk, source, sessionInfo, sourceSize, 
   for (const line of lines) {
     const userMessage = parseUserMessageLine(line);
     if (userMessage && isCurrentUserMessageLine(line, historyNotBeforeMs)) {
+      // A structured answer dismisses only the answered async questions;
+      // a new ordinary prompt dismisses all outstanding questions in this chat.
+      codexPendingAsyncInput.handleUserMessage(sessionKey, userMessage);
       let ownerWindowSessionId = "";
       let eventTimestampMs = 0;
       const userTurnId = getUserMessageTurnId(line);
@@ -984,8 +1007,7 @@ async function processCodexSessionChunk(chunk, source, sessionInfo, sourceSize, 
     }
     const request = parseRequestUserInputLine(line);
     if (request) {
-      const sessionKey = sessionInfo.sessionId || sourceKey;
-      const requestKey = `${sessionKey}:${request.turnId || request.callId}`;
+      const requestKey = `${sessionKey}:${request.callId || request.turnId}`;
       if (codexInputRequestTurnIds.has(requestKey)) continue;
       if (isHistoricalSessionRequest(request, sessionInfo, historyNotBeforeMs)) {
         logDebug(
@@ -994,11 +1016,14 @@ async function processCodexSessionChunk(chunk, source, sessionInfo, sourceSize, 
         continue;
       }
       codexInputRequestTurnIds.add(requestKey);
+    // Only request_user_input_async is non-blocking; sync questions are not tracked here.
+    codexPendingAsyncInput.registerRequest(sessionKey, line);
       lastCodexNotifyAt = Date.now();
       logDebug(`request_user_input source=${sourceKey} turnId=${request.turnId} callId=${request.callId || "n/a"}`);
       sessionInfo.prompt = await getLatestSessionPrompt(source, sourceSize, sessionInfo.prompt);
       await notify("complete", "Codex is waiting for your input.", {
         mode: "auto",
+        threadId: sessionInfo.sessionId,
         turnId: request.turnId,
         sessionCwd: sessionInfo.cwd,
         toastMessage: formatSessionNotification("complete", sessionInfo.prompt, true),
@@ -1020,11 +1045,18 @@ async function processCodexSessionChunk(chunk, source, sessionInfo, sourceSize, 
       continue;
     }
     codexCompletedTurnIds.add(turnId);
+    if (codexPendingAsyncInput.hasPending(sessionKey)) {
+      // Codex can complete a turn while the async question is still awaiting input.
+      // The input notification is more useful than another 'task complete' toast.
+      logDebug(`task_complete suppressed: pending async input session=${sessionKey} turn=${turnId}`);
+      continue;
+    }
     lastCodexNotifyAt = Date.now();
     logDebug(`task_complete source=${sourceKey} turnId=${turnId}`);
     sessionInfo.prompt = await getLatestSessionPrompt(source, sourceSize, sessionInfo.prompt);
     await notify("complete", "Codex has finished responding.", {
         mode: "auto",
+        threadId: sessionInfo.sessionId,
         turnId,
         sessionCwd: sessionInfo.cwd,
         toastMessage: formatSessionNotification("complete", sessionInfo.prompt),
@@ -1384,6 +1416,15 @@ async function maybeShowPostUpdateReloadHint(context) {
 
 // Extension activation: register commands, config change handlers, and watchers.
 function activate(context) {
+  if (process.platform === "darwin") {
+    // asExternalUri includes the initiating windowId; VS Code activates that
+    // window when terminal-notifier opens this URI. No chat API is invoked.
+    context.subscriptions.push(vscode.window.registerUriHandler({
+      handleUri(uri) {
+        if (uri.path === "/focus") logDebug("macOS notification opened in VS Code");
+      }
+    }));
+  }
   if (process.platform === "win32" && getConfig().get("focusExistingWindowOnToast", true)) {
     void installWindowsToastFocusHelper(context).catch((error) => {
       logDebug(`toast focus helper registration failed error=${String(error?.message || error)}`);
