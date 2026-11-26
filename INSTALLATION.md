@@ -100,7 +100,7 @@ For safer auto-detection defaults:
 ## Remote SSH
 
 - Install **Codex Notifier** in the local VS Code UI. It is declared as a UI extension so notifications and sound play on the computer running VS Code.
-- Install **Codex Notifier Remote** on the SSH host. In the Extensions view, choose **Install in SSH: <host>** for `zis3c.codex-notifier-remote`, then reload the remote window.
+- Install **Codex Notifier Remote** on the SSH host. In the Extensions view, choose **Install in SSH: <host>** for `zis3c.codex-notifier-ssh`, then reload the remote window.
 - Open the remote folder with **Remote - SSH** as usual.
 - Keep `codexNotifier.watchFilePath` relative (the default is `.codex-notify`) to watch the trigger file on the SSH host.
 - Absolute trigger and custom sound paths refer to the local computer.

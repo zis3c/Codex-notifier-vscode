@@ -1,5 +1,5 @@
 {
-  "name": "codex-notifier-remote",
+  "name": "codex-notifier-ssh",
   "displayName": "Codex Notifier Remote",
   "description": "Runs on the Remote SSH host and reports Codex session events to Codex Notifier without transferring session logs.",
   "version": "0.1.14",

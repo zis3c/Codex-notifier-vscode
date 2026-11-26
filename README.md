@@ -137,7 +137,7 @@ If Windows toast-click focusing stops working, run `Codex Notifier: Enable Toast
 
 ### Remote SSH Workspaces
 
-Remote workspaces use a companion event bridge: a small companion running on the remote side reads session information and emits event records; the local VS Code UI extension handles notifications and sound. The notification audio therefore plays on your local computer.
+Remote workspaces use a companion event bridge: install **Codex Notifier Remote** (`zis3c.codex-notifier-ssh`) on the SSH host. It reads session information and emits event records; the local VS Code UI extension handles notifications and sound. The notification audio therefore plays on your local computer.
 
 For remote setups, see [INSTALLATION.md](INSTALLATION.md) and configure `codexNotifier.remoteSessionsPath` if the remote sessions directory cannot be inferred from the workspace. Use a relative `codexNotifier.watchFilePath` for workspace-based remote manual triggers; an absolute path refers to the machine running the local UI extension.
 

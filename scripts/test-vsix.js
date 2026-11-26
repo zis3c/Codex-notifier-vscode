@@ -66,7 +66,7 @@ function main() {
 function checkRemoteVsix(root, outDir) {
   const remoteRoot = path.join(root, "remote");
   const remotePkg = JSON.parse(fs.readFileSync(path.join(remoteRoot, "package.json"), "utf8"));
-  const remoteOut = path.join(outDir, `codex-notifier-remote-${remotePkg.version}.vsix`);
+  const remoteOut = path.join(outDir, `codex-notifier-ssh-${remotePkg.version}.vsix`);
 
   runNpm(["exec", "--yes", "@vscode/vsce", "--", "package", "--out", remoteOut], remoteRoot);
 
@@ -88,7 +88,7 @@ function checkRemoteVsix(root, outDir) {
   }
 
   const manifest = JSON.parse(zip.getEntry("extension/package.json").getData().toString("utf8"));
-  if (manifest.name !== "codex-notifier-remote") {
+  if (manifest.name !== "codex-notifier-ssh") {
     throw new Error(`Unexpected remote extension name: ${manifest.name}`);
   }
 

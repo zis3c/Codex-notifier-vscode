@@ -1,5 +1,9 @@
 # Changelog
 
+## [Unreleased]
+
+- Renamed the Remote SSH companion package to `codex-notifier-ssh` because the Marketplace name `codex-notifier-remote` was unavailable. The display name remains `Codex Notifier Remote`. Remote SSH users install `zis3c.codex-notifier-ssh` on the SSH host.
+
 ## [0.1.14] - 2026-11-26
 
 - Added clickable macOS system notifications using `terminal-notifier`. A click returns to the originating VS Code window and opens the local Codex conversation when a thread ID is available. Thanks to [6apxat](https://github.com/6apxat) for [PR #10](https://github.com/zis3c/Codex-notifier-vscode/pull/10).
