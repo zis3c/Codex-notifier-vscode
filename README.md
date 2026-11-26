@@ -1,4 +1,8 @@
-# Codex Notifier
+<p align="center">
+  <img src="./logo.png" alt="Codex Notifier Logo" width="120" />
+</p>
+
+<h1 align="center">Codex Notifier</h1>
 
 Sound and desktop notifications for Codex workflows in Visual Studio Code.
 

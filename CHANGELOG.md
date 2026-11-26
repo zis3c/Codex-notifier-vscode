@@ -1,11 +1,12 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.14] - 2026-11-26
 
 - Added clickable macOS system notifications using `terminal-notifier`. A click returns to the originating VS Code window and opens the local Codex conversation when a thread ID is available. Thanks to [6apxat](https://github.com/6apxat) for [PR #10](https://github.com/zis3c/Codex-notifier-vscode/pull/10).
 - Added support for `request_user_input_async`. Completion notifications are suppressed while asynchronous questions remain unanswered, and resume after the user answers or starts a new request.
 - Remote SSH notification clicks focus VS Code but do not open a specific Codex conversation. Pending-question suppression is local-only.
 - Hardened the macOS notification helper: `terminal-notifier` discovery uses POSIX path rules, the macOS notification test now passes on Windows CI, and async request parsing reuses the shared session parser.
+- Added a maintenance status note to the README.
 
 ## [0.1.13] - 2026-11-11
 
