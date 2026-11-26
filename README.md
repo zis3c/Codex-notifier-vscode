@@ -4,6 +4,9 @@ Sound and desktop notifications for Codex workflows in Visual Studio Code.
 
 Codex Notifier alerts you when a Codex response finishes or when Codex needs you to answer a question. It supports automatic detection from Codex session logs, manually triggered notifications, and configurable sound and UI feedback.
 
+> [!IMPORTANT]
+> Maintenance is limited. I can't keep up the pace I used to because of classes and an internship, and the cost of a ChatGPT plan limits how often I can test changes. Issue replies and updates may be slow. Pull requests with clear reproduction steps are welcome, and I'll review them when I can.
+
 > [!NOTE]
 > Automatic detection works with eligible top-level Codex sessions. You can also trigger notifications manually with the `.codex-notify` file.
 
