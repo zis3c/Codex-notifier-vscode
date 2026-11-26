@@ -14,7 +14,7 @@ Codex Notifier alerts you when a Codex response finishes or when Codex needs you
 - Automatic completion detection using Codex session events.
 - Input-request detection for `request_user_input` and `request_user_input_async`.
 - Suppression of misleading completion notifications while asynchronous questions are awaiting answers in a local session.
-- Clickable macOS system notifications that can reopen the originating VS Code window and Codex conversation.
+- Clickable macOS system notifications that reopen the originating VS Code window and, for local sessions, the Codex conversation.
 - Windows toast-click support for returning to the matching VS Code window.
 - Configurable quiet status-bar messages, banners, system notifications, and sounds.
 - Optional document-based idle detection when session-log monitoring is disabled.
@@ -63,7 +63,7 @@ If a workspace has its own `.vscode/settings.json`, check whether its `codexNoti
 
 ### macOS: Clickable Notifications and Conversation Routing
 
-On macOS, the extension can use [`terminal-notifier`](https://github.com/julienXX/terminal-notifier) to show system notifications with a click action. The click action returns to the relevant VS Code window and, when a valid Codex thread ID is available, opens the conversation associated with the notification.
+On macOS, the extension can use [`terminal-notifier`](https://github.com/julienXX/terminal-notifier) to show system notifications with a click action. The click action returns to the relevant VS Code window. For locally monitored sessions, it also opens the Codex conversation when a valid thread ID is available.
 
 #### Setup
 
@@ -96,8 +96,9 @@ Recommended VS Code settings for macOS:
 
 #### What happens on click
 
-- **Task completed:** The notification opens the associated Codex conversation when its thread ID is available.
-- **Input needed:** A `request_user_input` or `request_user_input_async` notification opens the conversation where Codex is waiting for a response.
+- **Task completed:** For a local session, the notification opens the associated Codex conversation when its thread ID is available.
+- **Input needed:** For a local session, a `request_user_input` or `request_user_input_async` notification opens the conversation where Codex is waiting for a response.
+- **Remote SSH:** The notification focuses the originating VS Code window but does not open a specific Codex conversation, because the local deep link cannot address a remote thread.
 - **Unanswered asynchronous questions:** A subsequent `task_complete` event does not produce another notification while the tracked questions remain unanswered. Normal completion notifications resume after the answer or a new ordinary request.
 - **Multiple VS Code windows:** VS Code's `asExternalUri()` mechanism is used to route the notification back to the window that issued it.
 - **Manual notifications:** Without a valid thread ID, the notification can focus VS Code but cannot choose a particular Codex conversation.
@@ -106,7 +107,8 @@ Recommended VS Code settings for macOS:
 
 - `terminal-notifier` is optional for basic notifications but **required for clickable macOS notifications**. If it is missing or fails to send a notification, the extension falls back to AppleScript (`osascript`). Clicking that fallback notification may open Script Editor instead of VS Code.
 - Opening a specific chat depends on the Codex extension's currently supported `vscode://openai.chatgpt/local/<threadId>` URI. This is **not a documented public API** and could change in a future Codex version.
-- Pending-question suppression is implemented for locally monitored JSONL sessions. Remote SSH behavior has not been verified end-to-end with this feature.
+- Pending-question suppression applies to locally monitored JSONL sessions only. The Remote SSH companion does not track pending questions, so completion notifications still arrive while a question is unanswered.
+- Remote SSH notification clicks focus VS Code but do not open a specific Codex conversation.
 - Pending-question state is in memory. Restarting the session watcher clears that state; a conversation already awaiting an answer may temporarily produce an ordinary completion notification.
 - System notification behavior and permissions depend on macOS settings.
 
@@ -123,7 +125,7 @@ If Windows toast-click focusing stops working, run `Codex Notifier: Enable Toast
 3. Session metadata is used to ignore ineligible auxiliary sessions and avoid replaying historical notifications when a conversation is resumed.
 4. Async input requests are tracked by session and question call ID. Completion events are suppressed while unanswered asynchronous questions remain pending.
 5. The notification system chooses a system notification when the VS Code window is not focused and the relevant settings permit it; otherwise it uses a banner or a quiet status indicator.
-6. With the macOS click-to-chat feature enabled, the extension builds a VS Code URI for the corresponding thread and supplies it to `terminal-notifier`.
+6. With the macOS click-to-chat feature enabled, the extension builds a VS Code URI for the corresponding local thread and supplies it to `terminal-notifier`. Remote SSH sessions use a focus-only URI.
 7. Manual mode watches `codexNotifier.watchFilePath`, which defaults to `.codex-notify` in the current workspace. A changed nonempty value containing `error` triggers an error notification; other nonempty values trigger completion notifications.
 
 ### Remote SSH Workspaces
@@ -132,7 +134,7 @@ Remote workspaces use a companion event bridge: a small companion running on the
 
 For remote setups, see [INSTALLATION.md](INSTALLATION.md) and configure `codexNotifier.remoteSessionsPath` if the remote sessions directory cannot be inferred from the workspace. Use a relative `codexNotifier.watchFilePath` for workspace-based remote manual triggers; an absolute path refers to the machine running the local UI extension.
 
-Local macOS click-to-chat and pending-async-input behavior should not be assumed to work identically over Remote SSH until tested.
+On Remote SSH, macOS notification clicks focus the VS Code window but do not open a specific Codex conversation. Pending-question suppression is handled only by the local session monitor.
 
 ## Recommended Settings
 

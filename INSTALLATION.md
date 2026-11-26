@@ -65,6 +65,18 @@ On Windows, v0.1.12 automatically registers the per-user `codex-notifier://` pro
 
 The helper records the native target of each VS Code window and matches toast ownership by Codex session and turn. This also supports the same existing chat being open in multiple windows. If an exact target cannot be verified, it does nothing instead of focusing the wrong window.
 
+## macOS Clickable Notifications
+
+Clickable notifications require [`terminal-notifier`](https://github.com/julienXX/terminal-notifier):
+
+```bash
+brew install terminal-notifier
+```
+
+Allow **terminal-notifier** under **System Settings → Notifications**. Without it, the extension falls back to AppleScript, and clicking the notification may open Script Editor instead of VS Code.
+
+Notification clicks return to the originating VS Code window. For local Codex sessions, the click also opens the relevant conversation when a thread ID is available. Remote SSH sessions focus VS Code only. See the [README](README.md#macos-clickable-notifications-and-conversation-routing) for details and troubleshooting.
+
 For safer auto-detection defaults:
 
 - `codexNotifier.codexLogMinEvents = 2`
@@ -101,6 +113,10 @@ For safer auto-detection defaults:
   covered yet.
 - Run `Codex Notifier: Show Diagnostics` to confirm the remote event roots and
   that events are being processed.
+- On macOS, a notification click from a Remote SSH window focuses VS Code but
+  does not open a specific Codex conversation. Pending-question suppression is
+  local-only; the remote companion still reports completion events while a
+  question is unanswered.
 - Remote live behavior still needs manual smoke testing. There is no automated
   Remote SSH end-to-end test in CI yet.
 
