@@ -93,6 +93,8 @@ function parseRequestUserInputLine(line) {
     return {
       turnId,
       callId: event.payload.call_id,
+      name: event.payload.name,
+      questionCount: questions.length,
       requestedAtMs: parseTimestampMs(event.timestamp)
     };
   } catch {

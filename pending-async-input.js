@@ -22,33 +22,19 @@ function parseQuestionReference(value) {
   return { callId: id[1], index };
 }
 
-function parseAsyncRequest(line) {
-  try {
-    const event = JSON.parse(line);
-    const payload = event?.payload;
-    if (event.type !== "response_item" || payload?.type !== "function_call" || payload.name !== "request_user_input_async") {
-      return null;
-    }
-    const callId = payload.call_id;
-    if (typeof callId !== "string" || !callId) return null;
-    const raw = payload.arguments || {};
-    const args = typeof raw === "string" ? JSON.parse(raw) : raw;
-    if (!Array.isArray(args?.questions) || args.questions.length === 0) return null;
-    return { callId, questionCount: args.questions.length };
-  } catch {
-    return null;
-  }
-}
-
 class PendingAsyncInputTracker {
   constructor() {
     // sessionId -> callId -> set of unanswered question indexes
     this.pending = new Map();
   }
 
-  registerRequest(sessionId, jsonlLine) {
-    const request = parseAsyncRequest(jsonlLine);
-    if (!request || !sessionId) return false;
+  registerRequest(sessionId, request) {
+    if (!sessionId || !request || request.name !== "request_user_input_async") return false;
+    const questionCount = request.questionCount;
+    if (typeof request.callId !== "string" || !request.callId
+      || !Number.isInteger(questionCount) || questionCount < 1) {
+      return false;
+    }
     let calls = this.pending.get(sessionId);
     if (!calls) {
       calls = new Map();
@@ -56,7 +42,7 @@ class PendingAsyncInputTracker {
     }
     // Replayed or duplicated requests should not re-open answered questions.
     if (!calls.has(request.callId)) {
-      calls.set(request.callId, new Set(Array.from({ length: request.questionCount }, (_, i) => i)));
+      calls.set(request.callId, new Set(Array.from({ length: questionCount }, (_, i) => i)));
     }
     return true;
   }
@@ -101,4 +87,4 @@ class PendingAsyncInputTracker {
   }
 }
 
-module.exports = { PendingAsyncInputTracker, parseAsyncRequest, parseQuestionReference };
+module.exports = { PendingAsyncInputTracker };

@@ -38,6 +38,10 @@ async function run() {
     await buildMacOSFocusUri(vscode, "not-a-real-thread-id"),
     "vscode://zis3c.codex-notifier/focus?windowId=14"
   );
+  assert.strictEqual(
+    await buildMacOSFocusUri({ ...vscode, env: { ...vscode.env, remoteName: "ssh-remote" } }, threadId),
+    "vscode://zis3c.codex-notifier/focus?windowId=14"
+  );
 
   const calls = [];
   const fakeExecFile = (file, args, done) => {

@@ -1,6 +1,6 @@
 "use strict";
 const assert = require("assert");
-const { PendingAsyncInputTracker, parseAsyncRequest } = require("../pending-async-input");
+const { PendingAsyncInputTracker } = require("../pending-async-input");
 const { parseRequestUserInputLine } = require("../session-events");
 
 const request = (id, count = 1, tool = "request_user_input_async") => JSON.stringify({
@@ -20,13 +20,15 @@ const reply = (...answers) => `<send_user_message_question_reply>${JSON.stringif
 const eventFromCodex = parseRequestUserInputLine(request("call-async-parser"));
 assert.ok(eventFromCodex && eventFromCodex.callId === "call-async-parser",
   "session-events.js must recognize request_user_input_async and title");
+assert.strictEqual(eventFromCodex.questionCount, 1, "session-events.js must report the question count");
 
+const register = (target, sessionId, line) => target.registerRequest(sessionId, parseRequestUserInputLine(line));
 const state = new PendingAsyncInputTracker();
-assert.strictEqual(state.registerRequest("session-a", request("call-a", 2)), true);
+assert.strictEqual(register(state, "session-a", request("call-a", 2)), true);
 assert.strictEqual(state.hasPending("session-a"), true, "pending questions suppress subsequent task_complete");
 assert.strictEqual(state.hasPending("session-b"), false, "sessions stay independent");
-state.registerRequest("session-a", request("call-b"));
-state.registerRequest("session-b", request("call-other"));
+register(state, "session-a", request("call-b"));
+register(state, "session-b", request("call-other"));
 state.handleUserMessage("session-a", reply(answer("call-a", 0)));
 assert.strictEqual(state.hasPending("session-a"), true, "partial reply must not clear other questions");
 state.handleUserMessage("session-a", reply(answer("call-a", 1)));
@@ -37,17 +39,17 @@ assert.strictEqual(state.hasPending("session-b"), true, "another session is unaf
 state.handleUserMessage("session-b", "Let's do something else");
 assert.strictEqual(state.hasPending("session-b"), false, "new ordinary prompt cancels pending questions");
 
-state.registerRequest("session-a", request("call-a"));
+register(state, "session-a", request("call-a"));
 state.handleUserMessage("session-a", reply({ questionItemId: "not parseable" }));
 assert.strictEqual(state.hasPending("session-a"), true, "unknown reply must not silently clear pending state");
 state.handleUserMessage("session-a", "<send_user_message_question_reply>{broken</send_user_message_question_reply>");
 assert.strictEqual(state.hasPending("session-a"), true, "malformed reply must not clear pending state");
 state.handleUserMessage("session-a", `# Context from my IDE setup:\n## My request:\n${reply(answer("call-a", 0))}`);
 assert.strictEqual(state.hasPending("session-a"), false, "IDE context prefix does not mask the answer");
-assert.strictEqual(state.registerRequest("session-a", request("sync", 1, "request_user_input")), false, "synchronous requests are not marked as async");
-assert.strictEqual(parseAsyncRequest("bad-json"), null);
+assert.strictEqual(register(state, "session-a", request("sync", 1, "request_user_input")), false, "synchronous requests are not marked as async");
+assert.strictEqual(register(state, "session-a", "bad-json"), false, "malformed input must not be tracked");
 
-state.registerRequest("session-a", request("call-next"));
+register(state, "session-a", request("call-next"));
 state.clear();
 assert.strictEqual(state.hasPending("session-a"), false, "watcher shutdown clears state");
 console.log("Pending async-input tests passed.");

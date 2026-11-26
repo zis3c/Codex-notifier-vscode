@@ -50,9 +50,6 @@ code --install-extension zis3c.codex-notifier
 
 For an offline or manual VSIX installation, see [INSTALLATION.md](INSTALLATION.md).
 
-> [!IMPORTANT]
-> The macOS click-to-chat behavior described below is part of the proposed changes in this branch. It is not necessarily available in the published Marketplace release.
-
 ## Quick Start
 
 1. Open VS Code settings and search for `Codex Notifier`.

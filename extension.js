@@ -1016,8 +1016,8 @@ async function processCodexSessionChunk(chunk, source, sessionInfo, sourceSize, 
         continue;
       }
       codexInputRequestTurnIds.add(requestKey);
-    // Only request_user_input_async is non-blocking; sync questions are not tracked here.
-    codexPendingAsyncInput.registerRequest(sessionKey, line);
+      // Only request_user_input_async is non-blocking; sync questions are not tracked here.
+      codexPendingAsyncInput.registerRequest(sessionKey, request);
       lastCodexNotifyAt = Date.now();
       logDebug(`request_user_input source=${sourceKey} turnId=${request.turnId} callId=${request.callId || "n/a"}`);
       sessionInfo.prompt = await getLatestSessionPrompt(source, sourceSize, sessionInfo.prompt);
