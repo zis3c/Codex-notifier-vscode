@@ -1,6 +1,6 @@
 # Changelog
 
-## [Unreleased]
+## [0.1.15] - 2026-11-26
 
 - Renamed the Remote SSH companion package to `codex-notifier-ssh` because the Marketplace name `codex-notifier-remote` was unavailable. The display name remains `Codex Notifier Remote`. Remote SSH users install `zis3c.codex-notifier-ssh` on the SSH host.
 
