@@ -1,142 +1,140 @@
-<!-- markdownlint-disable MD032 MD033 MD034 MD041 MD060 -->
-<p align="center">
-  <img src="./logo.png" alt="Codex Notifier Logo" width="120" />
-</p>
+# Codex Notifier
 
-<h1 align="center">Codex Notifier</h1>
+Sound and desktop notifications for Codex workflows in Visual Studio Code.
 
-<p align="center">
-  Reliable completion and error notifications for Codex workflows in VS Code.
-</p>
-
-<p align="center">
-  <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
-    <img src="https://img.shields.io/badge/Marketplace-0.1.12-007ACC?style=flat-square&logo=visualstudiocode&logoColor=white" alt="VS Code Marketplace Version" />
-  </a>
-  <a href="https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier">
-    <img src="https://img.shields.io/badge/Installs-1K%2B-2ea44f?style=flat-square" alt="VS Code Marketplace Installs" />
-  </a>
-  <img src="https://img.shields.io/github/actions/workflow/status/zis3c/Codex-notifier-vscode/ci.yml?branch=main&label=CI&style=flat-square" alt="CI status" />
-  <img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Linux%20%7C%20macOS-777777?style=flat-square" alt="Platform" />
-  <img src="https://img.shields.io/badge/License-MIT-2ea44f?style=flat-square" alt="License" />
-</p>
-
-A lightweight VS Code extension that notifies you when Codex responses finish or pauses for input using sound and configurable UI alerts that follow the same quiet-status vs banner setting.
+Codex Notifier alerts you when a Codex response finishes or when Codex needs you to answer a question. It supports automatic detection from Codex session logs, manually triggered notifications, and configurable sound and UI feedback.
 
 > [!NOTE]
-> Built for fast feedback loops: use automatic Codex session completion detection or the manual `.codex-notify` file trigger.
+> Automatic detection works with eligible top-level Codex sessions. You can also trigger notifications manually with the `.codex-notify` file.
 
 ## Features
 
-- Completion and error notification commands.
-- Bundled sound defaults (no custom setup required):
-  - Complete -> `notification2.wav`
-  - Error -> `notification1.wav`
-- Auto completion detection from Codex stream logs with safer burst checks.
-- Prompt detection when Codex pauses for `request_user_input`.
-- Optional document-based idle detection fallback.
-- Quiet mode or banner mode for completion and prompt notifications.
-- Windows toast click focus for the exact VS Code window that owns the prompt,
-  including multiple windows using the same existing Codex chat.
-- Manual trigger support through `.codex-notify` and `codex-done.ps1`.
-- Remote SSH workspace support: notifications and sounds run locally while a companion extension reads session logs on the SSH host and sends tiny event records, so transcripts never cross the connection.
+- Completion and error notifications, with manual commands for testing.
+- Bundled sounds, with separate defaults for completion (`notification2.wav`) and errors (`notification1.wav`).
+- Automatic completion detection using Codex session events.
+- Input-request detection for `request_user_input` and `request_user_input_async`.
+- Suppression of misleading completion notifications while asynchronous questions are awaiting answers in a local session.
+- Clickable macOS system notifications that can reopen the originating VS Code window and Codex conversation.
+- Windows toast-click support for returning to the matching VS Code window.
+- Configurable quiet status-bar messages, banners, system notifications, and sounds.
+- Optional document-based idle detection when session-log monitoring is disabled.
+- Manual triggers using `.codex-notify` or `codex-done.ps1`.
+- Remote SSH support using a companion extension to relay small event records to the local VS Code UI host.
 
 ## Commands
 
-| Command | Description |
-|:--|:--|
-| `Codex Notifier: Notify Complete` | Trigger completion notification manually |
-| `Codex Notifier: Notify Error` | Trigger error notification manually |
-| `Codex Notifier: Test Sound` | Test completion sound + UI behavior |
-| `Codex Notifier: Toggle Auto Notify` | Enable/disable log-based auto detection |
-| `Codex Notifier: Show Diagnostics` | Show runtime diagnostics snapshot |
+| Command | Purpose |
+| --- | --- |
+| `Codex Notifier: Notify Complete` | Send a manual completion notification. |
+| `Codex Notifier: Notify Error` | Send a manual error notification. |
+| `Codex Notifier: Test Sound` | Check sound and notification behavior. |
+| `Codex Notifier: Toggle Auto Notify` | Enable or disable automatic session monitoring. |
+| `Codex Notifier: Show Diagnostics` | Inspect current notifier settings and monitoring state. |
+| `Codex Notifier: Enable Toast Window Focus (Windows)` | Repair Windows toast protocol registration, if needed. |
 
 ## Installation
 
-### Option 1 (Recommended): VS Code Marketplace
+### VS Code Marketplace
 
-1. Open Extensions view in VS Code (`Ctrl+Shift+X`).
-2. Search `Codex Notifier`.
-3. Click **Install** on `zis3c.codex-notifier`.
+1. Open the Extensions view in VS Code (`Ctrl+Shift+X` on Windows/Linux, `Cmd+Shift+X` on macOS).
+2. Search for **Codex Notifier**.
+3. Install `zis3c.codex-notifier`.
 
-Direct link:
-- https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier
+[Codex Notifier on the Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier)
 
-### Option 2: Command Line
+Alternatively, install it from the command line:
 
 ```bash
 code --install-extension zis3c.codex-notifier
 ```
 
-### Option 3: VSIX (Offline/Manual)
-
-See [INSTALLATION.md](./INSTALLATION.md) for VSIX steps.
+For an offline or manual VSIX installation, see [INSTALLATION.md](INSTALLATION.md).
 
 ## Quick Start
 
-1. Open VS Code settings and search `Codex Notifier`.
-2. Keep defaults (recommended): sound on, auto-detection on, safer burst thresholds.
-3. Run `Codex Notifier: Test Sound` from Command Palette.
-4. Ask Codex something and wait for either response completion or `request_user_input` notification.
-5. If behavior does not match the settings you just changed, check whether this workspace has its own `.vscode/settings.json` overrides for `codexNotifier.*`.
+1. Open VS Code settings and search for `Codex Notifier`.
+2. Keep sound and automatic Codex session monitoring enabled.
+3. Run `Codex Notifier: Test Sound` from the Command Palette.
+4. Ask Codex to complete a task or request a structured choice using Plan mode.
+5. Switch to another application before Codex finishes or requests your attention.
+6. Click the notification to return to VS Code.
 
-### Windows Toast Click Focus
+If a workspace has its own `.vscode/settings.json`, check whether its `codexNotifier.*` values override your user settings.
 
-On Windows, v0.1.12 enables toast window focus automatically. The extension records the native window target when each VS Code window is focused. Each notification stores its target by Codex session and turn, so clicking a toast returns to the window that sent that prompt, even when several windows use the same existing chat. The helper is fail-safe: if it cannot identify the exact window, it does nothing instead of focusing a different window. Run `Codex Notifier: Enable Toast Window Focus (Windows)` only to repair a missing protocol registration.
+### macOS: Clickable Notifications and Conversation Routing
+
+On macOS, the extension can use [`terminal-notifier`](https://github.com/julienXX/terminal-notifier) to show system notifications with a click action. The click action returns to the relevant VS Code window and, when a valid Codex thread ID is available, opens the conversation associated with the notification.
+
+#### Setup
+
+Install the notification helper with Homebrew:
+
+```bash
+brew install terminal-notifier
+```
+
+Then allow **terminal-notifier** to send notifications under **System Settings → Notifications**. If the application does not appear or macOS denies permission, run a notification manually and check its exit status:
+
+```bash
+terminal-notifier -title "Codex Notifier" -message "Notification test"
+echo $?
+```
+
+A nonzero exit status indicates that the helper could not deliver the notification; verify its macOS notification permission before testing the extension.
+
+Recommended VS Code settings for macOS:
+
+```json
+{
+  "codexNotifier.enableSound": true,
+  "codexNotifier.enablePopup": true,
+  "codexNotifier.toastWhenUnfocused": true,
+  "codexNotifier.focusExistingWindowOnToast": true,
+  "codexNotifier.monitorCodexLog": true
+}
+```
+
+#### What happens on click
+
+- **Task completed:** The notification opens the associated Codex conversation when its thread ID is available.
+- **Input needed:** A `request_user_input` or `request_user_input_async` notification opens the conversation where Codex is waiting for a response.
+- **Unanswered asynchronous questions:** A subsequent `task_complete` event does not produce another notification while the tracked questions remain unanswered. Normal completion notifications resume after the answer or a new ordinary request.
+- **Multiple VS Code windows:** VS Code's `asExternalUri()` mechanism is used to route the notification back to the window that issued it.
+- **Manual notifications:** Without a valid thread ID, the notification can focus VS Code but cannot choose a particular Codex conversation.
+
+#### Limitations
+
+- `terminal-notifier` is optional for basic notifications but **required for clickable macOS notifications**. If it is missing or fails to send a notification, the extension falls back to AppleScript (`osascript`). Clicking that fallback notification may open Script Editor instead of VS Code.
+- Opening a specific chat depends on the Codex extension's currently supported `vscode://openai.chatgpt/local/<threadId>` URI. This is **not a documented public API** and could change in a future Codex version.
+- Pending-question suppression is implemented for locally monitored JSONL sessions. Remote SSH behavior has not been verified end-to-end with this feature.
+- Pending-question state is in memory. Restarting the session watcher clears that state; a conversation already awaiting an answer may temporarily produce an ordinary completion notification.
+- System notification behavior and permissions depend on macOS settings.
+
+### Windows: Toast Window Focus
+
+On Windows, the extension registers a per-user toast protocol and keeps track of window ownership so a notification can return to the matching VS Code window. This is especially useful when several windows share an existing Codex chat.
+
+If Windows toast-click focusing stops working, run `Codex Notifier: Enable Toast Window Focus (Windows)` from the Command Palette to repair its registration.
 
 ## How It Works
 
-1. On activation, the extension starts the Codex session completion detector and the manual file watcher.
-2. For manual mode, it resolves `codexNotifier.watchFilePath` (default: `.codex-notify`) from the current workspace folder or folders.
-3. If no workspace folder is open, it falls back to the current process directory.
-4. If the workspace changes, the manual watcher refreshes so it follows the new folder.
-5. If the file does not exist, nothing is created automatically (manual trigger stays off until file exists).
-6. When the file content changes:
-   - Contains `error` -> error notification
-   - Any other non-empty content -> complete notification
-7. Auto mode tails Codex session JSONL files and reacts to authoritative `task_complete` and `request_user_input` events.
-8. Prompt notifications use the same `codexNotifier.completionUseBanner` setting as completion notifications.
-9. On Windows, toast activation uses a per-user `codex-notifier://` protocol and a hidden helper. Native HWND mappings and per-turn ownership prevent cross-window redirects and duplicate focus actions.
+1. When VS Code activates the extension, it starts the configured session-log monitor and manual file watcher.
+2. Automatic mode scans eligible Codex JSONL sessions and processes authoritative events such as `task_complete`, `request_user_input`, and `request_user_input_async`.
+3. Session metadata is used to ignore ineligible auxiliary sessions and avoid replaying historical notifications when a conversation is resumed.
+4. Async input requests are tracked by session and question call ID. Completion events are suppressed while unanswered asynchronous questions remain pending.
+5. The notification system chooses a system notification when the VS Code window is not focused and the relevant settings permit it; otherwise it uses a banner or a quiet status indicator.
+6. With the macOS click-to-chat feature enabled, the extension builds a VS Code URI for the corresponding thread and supplies it to `terminal-notifier`.
+7. Manual mode watches `codexNotifier.watchFilePath`, which defaults to `.codex-notify` in the current workspace. A changed nonempty value containing `error` triggers an error notification; other nonempty values trigger completion notifications.
 
 ### Remote SSH Workspaces
 
-Notifications and sounds stay on your computer. Session logs are read on the
-SSH host by the lightweight **Codex Notifier Remote** companion, so JSONL
-transcripts never cross the SSH connection. The companion writes small event
-files under `~/.codex/codex-notifier-events` (or next to a configured
-`codexNotifier.remoteSessionsPath`), and the local extension consumes and
-deletes them.
+Remote workspaces use a companion event bridge: a small companion running on the remote side reads session information and emits event records; the local VS Code UI extension handles notifications and sound. The notification audio therefore plays on your local computer.
 
-Install both extensions in a Remote SSH window:
+For remote setups, see [INSTALLATION.md](INSTALLATION.md) and configure `codexNotifier.remoteSessionsPath` if the remote sessions directory cannot be inferred from the workspace. Use a relative `codexNotifier.watchFilePath` for workspace-based remote manual triggers; an absolute path refers to the machine running the local UI extension.
 
-1. Install **Codex Notifier** locally (this extension).
-2. Install **Codex Notifier Remote** on the SSH host. In the Extensions view,
-   choose **Install in SSH: <host>** for `zis3c.codex-notifier-remote`.
-3. Reload the remote window.
-
-The companion reacts to authoritative `task_complete` and `request_user_input`
-events. Guardian and subagent sessions are ignored, because their intermediate
-`task_complete` events do not mean the user's top-level task has finished.
-`request_user_input` events mean Codex is waiting for the user to answer, so
-they should notify immediately.
-When a conversation is forked into a new task, inherited completion history is
-also ignored. Resuming an existing chat does not replay its previous
-completions; only newly completed work produces a notification.
-
-The default relative trigger path (`.codex-notify`) is watched through VS Code's remote file-system API. In a multi-root workspace, one trigger is watched in each root. Absolute `watchFilePath` values still refer to the local UI machine; use a relative path to watch a file on the SSH host.
-
-The remote home directory is inferred from the workspace URI. For unusual
-layouts, set `codexNotifier.remoteSessionsPath` to the absolute remote sessions
-directory. Remote SSH to Linux and macOS hosts is supported; Windows SSH hosts
-are not covered yet.
+Local macOS click-to-chat and pending-async-input behavior should not be assumed to work identically over Remote SSH until tested.
 
 ## Recommended Settings
-
-On Windows, enable `codexNotifier.alwaysSystemNotify` to receive system
-notifications even when a VS Code window is in the foreground. The setting is
-off by default and still respects `codexNotifier.enablePopup`. It overrides
-`toastWhenUnfocused` on Windows only. Windows notification policies such as Do
-Not Disturb may still suppress the displayed banner.
 
 ```json
 {
@@ -144,109 +142,83 @@ Not Disturb may still suppress the displayed banner.
   "codexNotifier.enablePopup": true,
   "codexNotifier.completionUseBanner": false,
   "codexNotifier.toastWhenUnfocused": true,
+  "codexNotifier.focusExistingWindowOnToast": true,
   "codexNotifier.monitorCodexLog": true,
-  "codexNotifier.codexLogPollMs": 400,
-  "codexNotifier.codexLogIdleMs": 500,
-  "codexNotifier.codexChatCooldownMs": 4500,
-  "codexNotifier.codexLogMinEvents": 1,
-  "codexNotifier.codexLogMinBurstMs": 0
+  "codexNotifier.codexLogPollMs": 700
 }
 ```
 
-## Documentation
-
-- Tutorial video: https://youtu.be/IpdNMO9YukI
-- For sound customization and advanced settings, see [INSTALLATION.md](./INSTALLATION.md) and the [Recommended Settings](#recommended-settings) section above.
-- [INSTALLATION.md](./INSTALLATION.md)
-- [CONTRIBUTING.md](./CONTRIBUTING.md)
-- [SECURITY.md](./SECURITY.md)
-- [AUTO_DEPLOY.md](./AUTO_DEPLOY.md)
+Use the `Codex Notifier` settings group in VS Code to discover additional sound, duration, manual trigger, and fallback options.
 
 ## Testing
 
-- Local syntax and release checks:
-  - `node --check extension.js`
-  - `npm run check`
-  - `npm run lint`
-  - `npm test`
-  - `npm run package:test`
-  - `npm run ci`
-- Manual smoke test:
-  - install the VSIX
-  - run `Codex Notifier: Test Sound`
-  - verify the package loads and the commands work
-  - test once with VS Code focused and once with VS Code unfocused to confirm banner or quiet mode plus system toast behavior
-  - open two or more VS Code windows, use existing chats in each, prompt them, and confirm each toast returns to its originating window
-- Manual remote live test:
-  - open a Remote SSH VS Code window
-  - verify notifications and sound on the local UI machine
-  - confirm the remote host session watcher still reacts correctly
-- What automation does not cover yet:
-  - no full UI E2E test for the VS Code window
-  - no automated Remote SSH live test in GitHub Actions
-- CI:
-  - GitHub Actions runs the same checks on every push and pull request across
-    Windows, macOS, and Linux
-  - `npm run ci` matches the main automated checks locally
+Install dependencies and run the repository's automated checks:
+
+```bash
+npm ci
+npm run ci
+```
+
+For more targeted checks:
+
+```bash
+node --check extension.js
+node --check macos-notification.js
+node --check pending-async-input.js
+node scripts/test-macos-notification.js
+node scripts/test-pending-async-input.js
+npm run package:test
+```
+
+For a local macOS integration test, launch an Extension Development Host with `F5`, ensure that both Codex and this development build are active, and verify the following:
+
+1. A completion notification reopens the conversation that produced it.
+2. An input request opens the conversation containing the unanswered form.
+3. A background `task_complete` event does not replace a pending-input notification before the form is answered.
+4. After answering, a genuine completion notification is shown again.
+5. The notification targets the expected window when more than one VS Code window is open.
+
+Automated tests cover notification URI construction, executable discovery and fallback, session-event parsing, pending-question state, and VSIX packaging. They do not replace a real macOS notification-click test. Remote SSH also requires a separate live test.
 
 ## Project Structure
 
 ```text
 codex-notifier-vscode/
-|- .eslintrc.cjs               # ESLint config
-|- .github/
-|  `- workflows/
-|     `- ci.yml                # GitHub Actions CI
-|- .gitignore                    # Git exclusions for local/dev artifacts
-|- .vscodeignore                 # VSIX packaging exclusions
-|- .vscode/
-|  |- launch.json                # Extension Development Host profile
-|  `- settings.json              # Local development settings
-|- AUTO_DEPLOY.md                # Release/deploy workflow documentation
-|- CHANGELOG.md                  # Version history
-|- CONTRIBUTING.md               # Contribution workflow and coding notes
-|- INSTALLATION.md               # End-user and dev installation guide
-|- LICENSE                       # MIT license
-|- README.md                     # Main documentation and feature overview
-|- SECURITY.md                   # Security policy and reporting guidance
-|- package-lock.json             # Locked npm dependency tree
-|- package.json                  # VS Code extension manifest and settings
-|- extension.js                  # Core runtime, watchers, and notifications
-|- remote-events.js              # Local consumer for remote companion events
-|- remote-paths.js               # Shared remote path resolution
-|- session-events.js             # Codex JSONL event parsing helpers
-|- remote/
-|  |- package.json              # Remote companion extension manifest
-|  |- extension.js              # Remote companion activation and event output
-|  `- session-tailer.js         # Remote-local JSONL tailer
-|- toast-focus.js                # Toast protocol payload builder
-|- windows-toast-focus.ps1       # Windows native window focus helper
-|- windows-toast-focus.vbs       # Hidden Windows helper launcher
-|- codex-done.ps1                # Manual .codex-notify trigger helper
-|- notification1.wav             # Bundled error sound
-|- notification2.wav             # Bundled completion sound
-|- scripts/
-|  |- test-session-events.js     # Session event tests
-|  |- test-toast-focus.js        # Toast payload tests
-|  |- test-remote-paths.js       # Remote path tests
-|  |- test-remote-agent.js       # Remote tailer tests
-|  |- test-remote-events.js      # Remote bridge tests
-|  |- sync-remote-shared.js      # Copies shared files into remote/
-|  |- test-vsix.js               # VSIX smoke test
-|  `- validate-release.js        # Release validation checks
-`- codex-notifier-private.vsix   # Locally built install artifact
+├── extension.js                     # Main extension lifecycle and monitors
+├── session-events.js                # Codex JSONL event parsing
+├── macos-notification.js            # macOS notifications and click-through URIs
+├── pending-async-input.js           # Outstanding async-question tracking
+├── toast-focus.js                   # Windows toast focus URL payloads
+├── windows-toast-focus.ps1          # Windows native window focusing
+├── windows-toast-focus.vbs          # Windows hidden helper launcher
+├── notification1.wav                # Default error sound
+├── notification2.wav                # Default completion sound
+├── codex-done.ps1                   # Manual notification helper
+├── package.json                     # Extension manifest and npm scripts
+├── scripts/
+│   ├── test-macos-notification.js
+│   ├── test-pending-async-input.js
+│   ├── test-session-events.js
+│   ├── test-vsix.js
+│   └── validate-release.js
+├── remote/                          # Remote SSH companion extension
+├── INSTALLATION.md
+├── CONTRIBUTING.md
+├── SECURITY.md
+├── AUTO_DEPLOY.md
+└── README.md
 ```
 
-Notes:
-- `.vscode/settings.json` is intentionally local-only and not tracked in git.
-- `.codex-notify` is runtime trigger data and not tracked in git.
-- `codex-notifier-private.vsix` is a generated install artifact, not a source
-  file.
-- `.vscode-test/` is a generated VS Code test runtime and is not part of the
-  source tree or VSIX package.
+Some files in this outline are omitted for brevity. Local settings such as `.vscode/settings.json`, session trigger files, build output, and VSIX packages should not be committed unless explicitly required.
+
+## Documentation
+
+- [INSTALLATION.md](INSTALLATION.md) — installation and configuration details.
+- [CONTRIBUTING.md](CONTRIBUTING.md) — contributing and development workflow.
+- [SECURITY.md](SECURITY.md) — security reporting.
+- [AUTO_DEPLOY.md](AUTO_DEPLOY.md) — release automation.
+- [Visual Studio Marketplace](https://marketplace.visualstudio.com/items?itemName=zis3c.codex-notifier) — published extension.
 
 ## License
 
-MIT. See [LICENSE](./LICENSE).
-
-<!-- markdownlint-enable MD032 MD033 MD034 MD041 MD060 -->
+MIT. See [LICENSE](LICENSE).
